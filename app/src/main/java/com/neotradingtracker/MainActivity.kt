@@ -67,6 +67,17 @@ class MainActivity : Activity() {
         val rp=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(14,12,14,14);background=panel(gold)};rp.addView(t("TACTICAL MARKET RADAR // LIVE SWEEP",12f,gold));rp.addView(t("SIGNAL ACQUISITION    RANGE: 24H    ENCRYPTION: ACTIVE",9f,Color.rgb(110,145,125)));rp.addView(RadarView(this){synchronized(radarPoints){radarPoints.toList()}},LinearLayout.LayoutParams(-1,if(compact)300 else 420));body.addView(rp);body.addView(spacer(14));body.addView(t("TARGET INTELLIGENCE // PRIORITY FEED",13f,gold));results=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};body.addView(results);body.addView(spacer(12));body.addView(sectionLabel("WATCHLIST // QUICK ACCESS"));watch.take(8).forEach{coin->body.addView(neoButton("☆  "+coin+" / USDT",green){thread{try{val j=JSONObject(URL("https://api.binance.com/api/v3/ticker/24hr?symbol="+coin+"USDT").readText());val p=j.getDouble("lastPrice");val ch=j.getDouble("priceChangePercent");runOnUiThread{detail(coin,p,ch,"VIEW",p)}}catch(_:Exception){}}})};body.addView(spacer(12));body.addView(neoButton("⇄ QUICK BUY / SELL",gold){tradeHub()});body.addView(spacer(8));body.addView(neoButton("⚡ BUY WITH SANJI",green){openSanji()});body.addView(spacer(12));body.addView(bottomNav());scroll.addView(body);f.addView(scroll);setContentView(f)
     }
 
+    private fun scanner(){
+        val box=screen("MARKET SCANNER")
+        box.addView(sectionLabel("TACTICAL RADAR"))
+        box.addView(t("Press SCAN NOW to refresh your watchlist using live 24h market data.",11f,Color.LTGRAY))
+        box.addView(RadarView(this){ synchronized(radarPoints){ radarPoints.toList() } },LinearLayout.LayoutParams(-1,340))
+        results=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+        box.addView(neoButton("◎ SCAN NOW",green){scan()})
+        box.addView(results)
+        box.addView(bottomNav())
+    }
+
     private fun scan(){
         results.removeAllViews()
         results.addView(t("◌ SCANNING ${watch.size} TARGETS // DECRYPTING MARKET DATA...",13f,gold))
@@ -178,10 +189,36 @@ class MainActivity : Activity() {
     }
 
     private fun watchlist(){
-        val box=screen("WATCHLIST");box.addView(sectionLabel("TRACKED ASSETS"));box.addView(neoButton("+ SEARCH / FOLLOW COIN",gold){markets()});box.addView(spacer(10))
-        val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};box.addView(list)
-        watch.toList().forEach{coin->thread{try{val j=JSONObject(URL("https://api.binance.com/api/v3/ticker/24hr?symbol="+coin+"USDT").readText());val p=j.getDouble("lastPrice");val ch=j.getDouble("priceChangePercent");runOnUiThread{val r=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;background=panel(if(ch>=0)green else Color.rgb(255,75,55));setPadding(12,8,12,8)};r.addView(t("☆ "+coin,16f,gold),LinearLayout.LayoutParams(0,-2,.6f));r.addView(t("$"+fmt(p),13f,Color.WHITE),LinearLayout.LayoutParams(0,-2,.7f));r.addView(t((if(ch>=0)"+ " else "")+"%.2f".format(ch)+"%",12f,if(ch>=0)green else Color.RED));r.setOnClickListener{chart(coin)};r.setOnLongClickListener{watch.remove(coin);saveWatchlist();watchlist();true};list.addView(r,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,4,0,4)})}}}catch(_:Exception){}}}
-        box.addView(spacer(12));box.addView(t("Long-press a tracked asset to remove it.",10f,Color.LTGRAY));box.addView(bottomNav())
+        val box=screen("WATCHLIST")
+        box.addView(sectionLabel("TRACKED ASSETS"))
+        box.addView(neoButton("+ SEARCH / FOLLOW COIN",gold){markets()})
+        val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+        box.addView(list)
+        watch.toList().forEach { coin ->
+            thread {
+                try {
+                    val j=JSONObject(URL("https://api.binance.com/api/v3/ticker/24hr?symbol="+coin+"USDT").readText())
+                    val price=j.getDouble("lastPrice")
+                    val change=j.getDouble("priceChangePercent")
+                    runOnUiThread {
+                        val row=LinearLayout(this).apply {
+                            orientation=LinearLayout.HORIZONTAL
+                            gravity=Gravity.CENTER_VERTICAL
+                            background=panel(if(change>=0) green else Color.rgb(255,75,55))
+                            setPadding(12,8,12,8)
+                        }
+                        row.addView(t("☆ "+coin,16f,gold),LinearLayout.LayoutParams(0,-2,.6f))
+                        row.addView(t("$"+fmt(price),13f,Color.WHITE),LinearLayout.LayoutParams(0,-2,.7f))
+                        row.addView(t((if(change>=0) "+ " else "")+"%.2f".format(change)+"%",12f,if(change>=0) green else Color.RED))
+                        row.setOnClickListener{chart(coin)}
+                        row.setOnLongClickListener{watch.remove(coin);saveWatchlist();watchlist();true}
+                        list.addView(row,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,4,0,4)})
+                    }
+                } catch (_:Exception) {}
+            }
+        }
+        box.addView(t("Long-press a tracked asset to remove it.",10f,Color.LTGRAY))
+        box.addView(bottomNav())
     }
     private fun menu(){
         val box=screen("N E O // MENU");listOf("⌂  DASHBOARD","▥  MARKETS","◎  SCANNER","★  WATCHLIST","♢  ALERTS","▤  TRADE LOG","⚙  SETTINGS","◈  CONNECTION","◐  APPEARANCE","?  HELP").forEach{label->box.addView(neoButton(label,if(label.contains("DASHBOARD"))green else Color.LTGRAY){when{label.contains("MARKETS")->markets();label.contains("SCANNER")->scanner();label.contains("WATCHLIST")->watchlist();label.contains("ALERTS")->alertCenter();label.contains("TRADE LOG")->tradeLog();label.contains("SETTINGS")->settings();label.contains("CONNECTION")->connection();label.contains("APPEARANCE")->appearance();label.contains("HELP")->help();else->home()}},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,3,0,3)})}
