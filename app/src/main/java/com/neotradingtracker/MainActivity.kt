@@ -28,8 +28,7 @@ class MainActivity : Activity() {
         val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setPadding(28,28,28,28)}
         val terminal=t("",20f);box.addView(t("NEO TRADING TRACKER",28f,gold));box.addView(terminal);f.addView(box);setContentView(f)
         val lines=listOf("> SYSTEM ACCESS...","You've hacked it Neo.","Knock knock.","☎  SECURE LINE CONNECTED")
-        var i=0;val h=Handler(mainLooper);val r=object:Runnable{override fun run(){if(i<lines.size){terminal.append(lines[i++]+"
-");h.postDelayed(this,700)}else h.postDelayed({payphone()},700)}};h.post(r)
+        var i=0;val h=Handler(mainLooper);val r=object:Runnable{override fun run(){if(i<lines.size){terminal.append(lines[i++]+System.lineSeparator());h.postDelayed(this,700)}else h.postDelayed({payphone()},700)}};h.post(r)
     }
 
     private fun payphone(){
