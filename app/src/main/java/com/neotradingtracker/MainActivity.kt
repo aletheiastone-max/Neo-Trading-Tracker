@@ -67,6 +67,11 @@ class MainActivity : Activity() {
         }catch(e:Exception){runOnUiThread{results.addView(t("$coin  // DATA LINK UNAVAILABLE",14f,Color.LTGRAY))}}}}
     }
 
+    private fun checkAlert(coin:String,price:Double){
+        val prefs=getSharedPreferences("neo",MODE_PRIVATE);val target=prefs.getFloat("alert_"+coin,Float.NaN)
+        if(!target.isNaN() && price>=target.toDouble()){Toast.makeText(this,coin+" alert reached: $"+fmt(price),Toast.LENGTH_LONG).show()}
+    }
+
     private fun coinCard(c:String,p:Double,ch:Double,s:String,bid:Double){
         val accent=if(s=="ENTER")green else if(s=="NO ACTION")Color.rgb(255,75,55) else gold;val card=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,16,18,16);background=panel(accent)}
         val top=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL};top.addView(t(c+" // USDT",20f,gold).apply{typeface=Typeface.create(Typeface.MONOSPACE,Typeface.BOLD)},LinearLayout.LayoutParams(0,-2,1f));top.addView(t(" "+s+" ",13f,accent).apply{gravity=Gravity.CENTER;background=panel(accent)});card.addView(top)
