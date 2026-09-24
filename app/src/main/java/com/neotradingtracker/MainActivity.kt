@@ -115,6 +115,7 @@ class MainActivity : Activity() {
         search.setOnEditorActionListener{_,_,_->val q=search.text.toString().trim().uppercase().removeSuffix("USDT");if(q.matches(Regex("[A-Z0-9]{2,12}"))){watch.add(q);loadMarket(q)};true}
         loadMarket()
         box.addView(spacer(12));box.addView(bottomNav())
+    }
     private fun detail(c:String,p:Double,ch:Double,s:String,bid:Double){
         val box=screen(c+" / USDT");box.addView(t("$"+fmt(p),29f,Color.WHITE));box.addView(t((if(ch>=0)"▲ +" else "▼ ")+"%.2f".format(ch)+"% (24h)",14f,if(ch>=0)green else Color.RED));box.addView(spacer(12))
         val intelligence=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(16,14,16,14);background=panel(gold)};intelligence.addView(t("AI ACTION     "+s,16f,gold));intelligence.addView(t("◎ IDEAL BID     $"+fmt(bid),14f,green));intelligence.addView(t("◉ TARGET 1      $"+fmt(p*1.015),14f));intelligence.addView(t("◉ TARGET 2      $"+fmt(p*1.035),14f));intelligence.addView(t("◇ STOP LOSS     $"+fmt(p*.975),14f,Color.rgb(255,90,70)));box.addView(intelligence);box.addView(spacer(12));box.addView(neoButton("LIVE CANDLES",green){chart(c)});box.addView(spacer(8));box.addView(neoButton("♢ SET ALERT",gold){alertDialog(c,p)});box.addView(spacer(10));box.addView(t("1m    5m    15m    1h    4h    1D",12f,green));box.addView(spacer(12));box.addView(bottomNav())
