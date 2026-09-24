@@ -27,10 +27,12 @@ class MainActivity : Activity() {
     private lateinit var results: LinearLayout
     private val watch=linkedSetOf("BTC","ETH","XRP","SOL","DOGE","LINK","AVAX")
     private val discover=linkedSetOf("BTC","ETH","XRP","SOL","DOGE","LINK","AVAX","ADA","BNB","TRX","SUI","HBAR","LTC","BCH","DOT","UNI","AAVE","NEAR","APT","ARB","OP","PEPE","SHIB")
+    private val allSymbols=mutableListOf<String>()
+    private fun loadAllSymbols(done:()->Unit={}){thread{try{val arr=org.json.JSONArray(URL("https://api.binance.com/api/v3/exchangeInfo").readText());}catch(_:Exception){};try{val root=JSONObject(URL("https://api.binance.com/api/v3/exchangeInfo").readText());val arr=root.getJSONArray("symbols");val found=mutableListOf<String>();for(i in 0 until arr.length()){val o=arr.getJSONObject(i);if(o.optString("quoteAsset")=="USDT"&&o.optString("status")=="TRADING")found.add(o.optString("baseAsset"))};synchronized(allSymbols){allSymbols.clear();allSymbols.addAll(found.distinct().sorted())};runOnUiThread{done()}}catch(_:Exception){runOnUiThread{done()}}}}
     private val radarPoints=mutableListOf<RadarPoint>()
     data class RadarPoint(val symbol:String,val change:Double,val position:Double,val signal:String)
 
-    override fun onCreate(b:Bundle?){super.onCreate(b);window.statusBarColor=Color.BLACK;window.navigationBarColor=Color.BLACK;if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),44);createChannel();loadWatchlist();boot()}
+    override fun onCreate(b:Bundle?){super.onCreate(b);window.statusBarColor=Color.BLACK;window.navigationBarColor=Color.BLACK;if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),44);createChannel();loadWatchlist();loadAllSymbols();boot()}
     private fun loadWatchlist(){ val saved=getSharedPreferences("neo_watch",MODE_PRIVATE).getStringSet("symbols",null); if(saved!=null){watch.clear();watch.addAll(saved.sorted())} }
     private fun saveWatchlist(){getSharedPreferences("neo_watch",MODE_PRIVATE).edit().putStringSet("symbols",watch.toSet()).apply()}
     private fun addCoin(symbol:String,onDone:(Boolean)->Unit){val q=symbol.trim().uppercase().removeSuffix("USDT");if(!q.matches(Regex("[A-Z0-9]{2,15}"))){onDone(false);return};thread{try{val j=JSONObject(URL("https://api.binance.com/api/v3/ticker/price?symbol="+q+"USDT").readText());j.getDouble("price");watch.add(q);saveWatchlist();runOnUiThread{onDone(true)}}catch(_:Exception){runOnUiThread{onDone(false)}}}}
@@ -109,7 +111,7 @@ class MainActivity : Activity() {
         val box=screen("LIVE MARKETS");val search=EditText(this).apply{hint="Search coins...";setTextColor(Color.WHITE);setHintTextColor(Color.GRAY);setPadding(18,16,18,16);background=panel(green)};box.addView(search);box.addView(spacer(10))
         box.addView(t("Type a symbol then press Enter to add it. Long-press any listed coin to add/remove it from your watchlist.",11f,Color.LTGRAY));box.addView(sectionLabel("MARKET UPLINK"));box.addView(t("ALL     FAVOURITES     GAINERS     LOSERS",12f,gold));box.addView(HudDivider(this),LinearLayout.LayoutParams(-1,14))
         val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};box.addView(list)
-        fun loadMarket(filter:String=""){list.removeAllViews();(if(filter.isBlank()) watch.toList() else discover.filter{it.contains(filter.uppercase())}).forEach { coin ->
+        fun loadMarket(filter:String=""){list.removeAllViews();(if(filter.isBlank()) watch.toList() else synchronized(allSymbols){allSymbols.filter{it.contains(filter.uppercase())}.take(40)}).forEach { coin ->
             thread {
                 try {
                     val j=JSONObject(URL("https://api.binance.com/api/v3/ticker/24hr?symbol="+coin+"USDT").readText())
@@ -125,7 +127,7 @@ class MainActivity : Activity() {
                 } catch (_:Exception) { }
             }
         }}
-        search.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,d:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,d:Int){loadMarket(s?.toString() ?: "")};override fun afterTextChanged(e:Editable?) {}})
+        search.isFocusableInTouchMode=true;search.isClickable=true;search.inputType=android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS;search.setSingleLine(true);search.imeOptions=android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH;search.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,d:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,d:Int){val q=s?.toString()?.trim()?:"";if(q.isBlank())loadMarket() else if(allSymbols.isEmpty())loadAllSymbols{loadMarket(q)} else loadMarket(q)};override fun afterTextChanged(e:Editable?) {}})
         search.setOnEditorActionListener{_,_,_->val q=search.text.toString().trim().uppercase().removeSuffix("USDT");if(q.matches(Regex("[A-Z0-9]{2,15}"))){addCoin(q){ok->if(ok)loadMarket(q) else Toast.makeText(this,"Coin not found on Binance USDT",Toast.LENGTH_SHORT).show()}};true}
         loadMarket()
         box.addView(spacer(12));box.addView(bottomNav())
