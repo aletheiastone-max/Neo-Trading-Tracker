@@ -33,59 +33,93 @@ class MainActivity : Activity() {
     private val allSymbols=mutableListOf<String>()
     private fun loadAllSymbols(done:()->Unit={}){thread{try{val root=JSONObject(URL("https://api.binance.com/api/v3/exchangeInfo").readText());val arr=root.getJSONArray("symbols");val found=mutableListOf<String>();for(i in 0 until arr.length()){val o=arr.getJSONObject(i);if(o.optString("quoteAsset")=="USDT"&&o.optString("status")=="TRADING")found.add(o.optString("baseAsset"))};synchronized(allSymbols){allSymbols.clear();allSymbols.addAll(found.distinct().sorted())};runOnUiThread{done()}}catch(_:Exception){runOnUiThread{done()}}}}
     data class TokenIdentity(val network:String,val address:String)
-    private val tokenIdentities=mutableMapOf<String,TokenIdentity>()
-    private fun resolveTokenIdentity(symbol:String,done:(TokenIdentity?)->Unit){
-        val q=symbol.trim().lowercase()
+    data class CoinIdentity(val id:String,val name:String,val symbol:String,val contracts:List<TokenIdentity>)
+    private val tokenIdentities=mutableMapOf<String,CoinIdentity>()
+
+    private fun cgGet(url:String):String {
+        val conn=URL(url).openConnection() as java.net.HttpURLConnection
+        conn.connectTimeout=15000
+        conn.readTimeout=15000
+        conn.requestMethod="GET"
+        conn.setRequestProperty("Accept","application/json")
+        conn.setRequestProperty("User-Agent","NeoTradingTracker/1.0 (Android; CoinGecko market metadata)")
+        conn.setRequestProperty("x-cg-demo-api-key","")
+        return try {
+            val code=conn.responseCode
+            if(code !in 200..299) throw java.io.IOException("CoinGecko HTTP "+code)
+            conn.inputStream.bufferedReader().use{it.readText()}
+        } finally { conn.disconnect() }
+    }
+
+    private fun resolveTokenIdentity(symbol:String,done:(CoinIdentity?)->Unit){
+        val normalized=symbol.trim().uppercase().removeSuffix("USDT")
+        synchronized(tokenIdentities){tokenIdentities[normalized]}?.let{done(it);return}
         thread {
             try {
-                val raw=URL("https://api.coingecko.com/api/v3/search?query="+java.net.URLEncoder.encode(q,"UTF-8")).readText()
-                val coins=JSONObject(raw).getJSONArray("coins")
-                var id:String?=null
+                val q=java.net.URLEncoder.encode(normalized,"UTF-8")
+                val coins=JSONObject(cgGet("https://api.coingecko.com/api/v3/search?query="+q)).getJSONArray("coins")
+                var chosen:JSONObject?=null
                 for(i in 0 until coins.length()){
                     val o=coins.getJSONObject(i)
-                    if(o.optString("symbol").equals(q,true)){id=o.optString("id");break}
+                    if(o.optString("symbol").equals(normalized,true)){
+                        chosen=o
+                        // Prefer an exact ticker match with the highest CoinGecko market-cap rank.
+                        if(o.optInt("market_cap_rank",0)>0) break
+                    }
                 }
-                if(id==null){runOnUiThread{done(null)};return@thread}
-                val coin=JSONObject(URL("https://api.coingecko.com/api/v3/coins/"+id+"?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false&sparkline=false").readText())
+                if(chosen==null){runOnUiThread{done(null)};return@thread}
+                val id=chosen!!.optString("id")
+                val coin=JSONObject(cgGet("https://api.coingecko.com/api/v3/coins/"+java.net.URLEncoder.encode(id,"UTF-8")+"?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false&sparkline=false"))
                 val platforms=coin.optJSONObject("platforms")
-                var identity:TokenIdentity?=null
+                val contracts=mutableListOf<TokenIdentity>()
                 if(platforms!=null){
-                    val preferred=listOf("ethereum","solana","binance-smart-chain","base","arbitrum-one","polygon-pos","avalanche","optimistic-ethereum")
-                    for(net in preferred){
+                    val keys=platforms.keys()
+                    while(keys.hasNext()){
+                        val net=keys.next()
                         val address=platforms.optString(net,"").trim()
-                        if(address.isNotBlank()){identity=TokenIdentity(net,address);break}
-                    }
-                    if(identity==null){
-                        val keys=platforms.keys()
-                        while(keys.hasNext()){
-                            val net=keys.next();val address=platforms.optString(net,"").trim()
-                            if(address.isNotBlank()){identity=TokenIdentity(net,address);break}
-                        }
+                        if(address.isNotBlank() && !address.equals("null",true)) contracts.add(TokenIdentity(net,address))
                     }
                 }
-                if(identity!=null) synchronized(tokenIdentities){tokenIdentities[symbol.uppercase()]=identity}
+                val identity=CoinIdentity(id,coin.optString("name",normalized),coin.optString("symbol",normalized),contracts.distinctBy{it.network+"|"+it.address})
+                synchronized(tokenIdentities){tokenIdentities[normalized]=identity}
                 runOnUiThread{done(identity)}
-            }catch(_:Exception){runOnUiThread{done(null)}}
+            }catch(e:Exception){
+                runOnUiThread{done(null)}
+            }
         }
     }
+
     private fun addTokenIdentity(box:LinearLayout,c:String){
-        box.addView(sectionLabel("TOKEN IDENTITY // VERIFY BEFORE PURCHASE"))
-        val status=t("RESOLVING VERIFIED TOKEN IDENTITY...",11f,gold)
+        box.addView(sectionLabel("COINGECKO TOKEN ADDRESSES // COPY FOR PURCHASE"))
+        val status=t("CONNECTING TO COINGECKO...",11f,gold)
         box.addView(status)
-        val copy=neoButton("COPY TOKEN ADDRESS",gold){}
-        copy.isEnabled=false;copy.alpha=.45f;box.addView(copy)
+        val addressBox=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+        box.addView(addressBox)
         resolveTokenIdentity(c){identity->
+            addressBox.removeAllViews()
             if(identity==null){
-                status.text="NATIVE COIN OR NO UNIQUE CONTRACT FOUND // "+c+"\nNo contract address will be guessed. Confirm the purchase network in the destination exchange/wallet."
-                status.setTextColor(Color.LTGRAY);copy.isEnabled=false;copy.alpha=.45f
+                status.text="COINGECKO ADDRESS DATA UNAVAILABLE // TAP RETRY"
+                status.setTextColor(Color.rgb(255,90,70))
+                status.setOnClickListener{addTokenIdentity(addressBox,c)}
             }else{
-                status.text="NETWORK // "+identity.network.uppercase()+"\nTOKEN ADDRESS // "+identity.address
-                status.setTextColor(Color.WHITE);status.setTextIsSelectable(true)
-                copy.isEnabled=true;copy.alpha=1f
-                copy.setOnClickListener{
-                    val clipboard=getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText(c+" token address",identity.address))
-                    Toast.makeText(this,c+" address copied",Toast.LENGTH_SHORT).show()
+                status.setOnClickListener(null)
+                status.text="COINGECKO // "+identity.name.uppercase()+" ("+identity.symbol.uppercase()+") // "+identity.contracts.size+" CONTRACT"+if(identity.contracts.size==1)"" else "S"
+                status.setTextColor(green)
+                if(identity.contracts.isEmpty()){
+                    addressBox.addView(t("NATIVE ASSET // NO TOKEN CONTRACT ADDRESS LISTED BY COINGECKO\nUse the native "+identity.name+" network when purchasing or withdrawing. No address is invented.",12f,Color.LTGRAY))
+                }else{
+                    identity.contracts.forEach { token ->
+                        val card=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(12,10,12,10);background=panel(green)}
+                        card.addView(t("NETWORK // "+token.network.uppercase(),11f,gold))
+                        card.addView(t(token.address,12f,Color.WHITE).apply{setTextIsSelectable(true)})
+                        card.addView(neoButton("COPY "+token.network.uppercase()+" ADDRESS",green){
+                            val clipboard=getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText(c+" "+token.network+" token address",token.address))
+                            Toast.makeText(this,c+" "+token.network+" address copied",Toast.LENGTH_SHORT).show()
+                        })
+                        addressBox.addView(card,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,5,0,5)})
+                    }
+                    addressBox.addView(t("VERIFY THE NETWORK MATCHES THE PURCHASE/WITHDRAWAL NETWORK BEFORE SENDING FUNDS.",10f,gold))
                 }
             }
         }
