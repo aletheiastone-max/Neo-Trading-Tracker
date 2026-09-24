@@ -20,17 +20,32 @@ class MainActivity : Activity() {
     private val watch=linkedSetOf("BTC","ETH","XRP","SOL","DOGE")
 
     override fun onCreate(b:Bundle?){super.onCreate(b);window.statusBarColor=Color.BLACK;boot()}
-    fun t(s:String,sz:Float=16f,c:Int=green)=TextView(this).apply{text=s;textSize=sz;setTextColor(c);typeface=Typeface.MONOSPACE;setPadding(12,10,12,10)}\n    private fun panel(stroke:Int=green)=GradientDrawable().apply{setColor(Color.argb(225,2,14,10));cornerRadius=20f;setStroke(2,stroke)}
+    fun t(s:String,sz:Float=16f,c:Int=green)=TextView(this).apply{text=s;textSize=sz;setTextColor(c);typeface=Typeface.MONOSPACE;setPadding(12,10,12,10)}
+    private fun panel(stroke:Int=green)=GradientDrawable().apply{setColor(Color.argb(225,2,14,10));cornerRadius=20f;setStroke(2,stroke)}
 
     private fun boot(){
         val f=FrameLayout(this);f.setBackgroundColor(Color.rgb(1,8,5));f.addView(MatrixView(this))
         val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setPadding(28,28,28,28)}
         val terminal=t("",20f);box.addView(t("NEO TRADING TRACKER",28f,gold));box.addView(terminal);f.addView(box);setContentView(f)
         val lines=listOf("> SYSTEM ACCESS...","You've hacked it Neo.","Knock knock.","☎  SECURE LINE CONNECTED")
-        var i=0;val h=Handler(mainLooper);val r=object:Runnable{override fun run(){if(i<lines.size){terminal.append(lines[i++]+"\n");h.postDelayed(this,700)}else h.postDelayed({payphone()},700)}};h.post(r)
+        var i=0;val h=Handler(mainLooper);val r=object:Runnable{override fun run(){if(i<lines.size){terminal.append(lines[i++]+"
+");h.postDelayed(this,700)}else h.postDelayed({payphone()},700)}};h.post(r)
     }
 
-    private fun payphone(){\n        val f=FrameLayout(this);f.setBackgroundColor(Color.BLACK);f.addView(MatrixView(this))\n        val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setPadding(40,40,40,40)}\n        box.addView(t("☎",80f,gold).apply{gravity=Gravity.CENTER});box.addView(t("SECURE PAYPHONE LINK",19f,gold).apply{gravity=Gravity.CENTER});box.addView(t("ROUTING MARKET INTELLIGENCE…",13f).apply{gravity=Gravity.CENTER});f.addView(box);setContentView(f)\n        box.alpha=0f\n        box.scaleX=.72f\n        box.scaleY=.72f\n        box.rotationX=10f\n        box.animate().alpha(1f).scaleX(1.08f).scaleY(1.08f).rotationX(0f).setDuration(650).withEndAction {\n            box.animate().alpha(0f).scaleX(1.7f).scaleY(1.7f).setDuration(350).withEndAction { home() }.start()\n        }.start()\n    }\n\n    private fun home(){
+    private fun payphone(){
+        val f=FrameLayout(this);f.setBackgroundColor(Color.BLACK);f.addView(MatrixView(this))
+        val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setPadding(40,40,40,40)}
+        box.addView(t("☎",80f,gold).apply{gravity=Gravity.CENTER});box.addView(t("SECURE PAYPHONE LINK",19f,gold).apply{gravity=Gravity.CENTER});box.addView(t("ROUTING MARKET INTELLIGENCE…",13f).apply{gravity=Gravity.CENTER});f.addView(box);setContentView(f)
+        box.alpha=0f
+        box.scaleX=.72f
+        box.scaleY=.72f
+        box.rotationX=10f
+        box.animate().alpha(1f).scaleX(1.08f).scaleY(1.08f).rotationX(0f).setDuration(650).withEndAction {
+            box.animate().alpha(0f).scaleX(1.7f).scaleY(1.7f).setDuration(350).withEndAction { home() }.start()
+        }.start()
+    }
+
+    private fun home(){
         val f=FrameLayout(this);f.setBackgroundColor(Color.BLACK);f.addView(MatrixView(this))
         val scroll=ScrollView(this);body=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(22,28,22,80)}
         body.addView(t("NEO TRADING TRACKER",27f,gold));body.addView(t("CIA // SECURE MARKET INTELLIGENCE",11f,Color.LTGRAY));body.addView(t("● LIVE DATA LINK // BINANCE USDT",12f))
