@@ -5,6 +5,7 @@ import android.os.*
 import android.content.*
 import android.graphics.*
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.view.*
 import android.webkit.*
 import android.widget.*
@@ -19,25 +20,25 @@ class MainActivity : Activity() {
     private val watch=linkedSetOf("BTC","ETH","XRP","SOL","DOGE")
 
     override fun onCreate(b:Bundle?){super.onCreate(b);window.statusBarColor=Color.BLACK;boot()}
-    fun t(s:String,sz:Float=16f,c:Int=green)=TextView(this).apply{text=s;textSize=sz;setTextColor(c);typeface=Typeface.MONOSPACE;setPadding(10,10,10,10)}
+    fun t(s:String,sz:Float=16f,c:Int=green)=TextView(this).apply{text=s;textSize=sz;setTextColor(c);typeface=Typeface.MONOSPACE;setPadding(12,10,12,10)}\n    private fun panel(stroke:Int=green)=GradientDrawable().apply{setColor(Color.argb(225,2,14,10));cornerRadius=20f;setStroke(2,stroke)}
 
     private fun boot(){
         val f=FrameLayout(this);f.setBackgroundColor(Color.rgb(1,8,5));f.addView(MatrixView(this))
         val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setPadding(28,28,28,28)}
         val terminal=t("",20f);box.addView(t("NEO TRADING TRACKER",28f,gold));box.addView(terminal);f.addView(box);setContentView(f)
         val lines=listOf("> SYSTEM ACCESS...","You've hacked it Neo.","Knock knock.","☎  SECURE LINE CONNECTED")
-        var i=0;val h=Handler(mainLooper);val r=object:Runnable{override fun run(){if(i<lines.size){terminal.append(lines[i++]+"\n");h.postDelayed(this,700)}else h.postDelayed({home()},900)}};h.post(r)
+        var i=0;val h=Handler(mainLooper);val r=object:Runnable{override fun run(){if(i<lines.size){terminal.append(lines[i++]+"\n");h.postDelayed(this,700)}else h.postDelayed({payphone()},700)}};h.post(r)
     }
 
-    private fun home(){
+    private fun payphone(){\n        val f=FrameLayout(this);f.setBackgroundColor(Color.BLACK);f.addView(MatrixView(this))\n        val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setPadding(40,40,40,40)}\n        box.addView(t("☎",80f,gold).apply{gravity=Gravity.CENTER});box.addView(t("SECURE PAYPHONE LINK",19f,gold).apply{gravity=Gravity.CENTER});box.addView(t("ROUTING MARKET INTELLIGENCE…",13f).apply{gravity=Gravity.CENTER});f.addView(box);setContentView(f)\n        box.alpha=0f;box.animate().alpha(1f).scaleX(1.05f).scaleY(1.05f).setDuration(650).withEndAction{box.animate().alpha(0f).setDuration(400).withEndAction{home()}}\n    }\n\n    private fun home(){
         val f=FrameLayout(this);f.setBackgroundColor(Color.BLACK);f.addView(MatrixView(this))
         val scroll=ScrollView(this);body=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(22,28,22,80)}
-        body.addView(t("NEO TRADING TRACKER",26f,gold));body.addView(t("SECURE MARKET INTELLIGENCE // LIVE",12f))
+        body.addView(t("NEO TRADING TRACKER",27f,gold));body.addView(t("CIA // SECURE MARKET INTELLIGENCE",11f,Color.LTGRAY));body.addView(t("● LIVE DATA LINK // BINANCE USDT",12f))
         val search=EditText(this).apply{hint="ADD COIN  e.g. ADA";setTextColor(Color.WHITE);setHintTextColor(Color.GRAY);backgroundTintList=android.content.res.ColorStateList.valueOf(green)}
         body.addView(search)
         body.addView(Button(this).apply{text="FOLLOW COIN";setOnClickListener{val s=search.text.toString().uppercase().replace("USDT","").trim();if(s.isNotEmpty()){watch.add(s);search.setText("");scan()}}})
         body.addView(Button(this).apply{text="◉  SCAN NOW";textSize=20f;setTextColor(Color.BLACK);setBackgroundColor(green);setOnClickListener{scan()}})
-        body.addView(RadarView(this),LinearLayout.LayoutParams(-1,380));scroll.addView(body);f.addView(scroll);setContentView(f);scan()
+        val rp=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(12,12,12,12);background=panel(gold)};rp.addView(t("TACTICAL MARKET RADAR",13f,gold));rp.addView(RadarView(this),LinearLayout.LayoutParams(-1,420));body.addView(rp);scroll.addView(body);f.addView(scroll);setContentView(f);scan()
     }
 
     private fun scan(){
@@ -54,7 +55,7 @@ class MainActivity : Activity() {
     }
 
     private fun coinCard(c:String,p:Double,ch:Double,s:String,bid:Double){
-        val card=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,18,18,18);background=ColorDrawable(Color.argb(220,3,22,14))}
+        val card=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,18,18,18);background=panel(if(s=="ENTER")green else if(s=="NO ACTION")Color.RED else gold)}
         card.addView(t("$c / USDT     ${fmt(p)}",20f,gold))
         card.addView(t("24H ${"%.2f".format(ch)}%     SIGNAL: $s",17f,if(s=="ENTER")green else if(s=="NO ACTION")Color.RED else gold))
         card.addView(t("IDEAL BID  $${fmt(bid)}",17f))
