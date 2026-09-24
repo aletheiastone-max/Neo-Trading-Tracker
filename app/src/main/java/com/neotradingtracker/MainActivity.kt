@@ -78,7 +78,7 @@ class MainActivity : Activity() {
 
     class MatrixView(c:Context):View(c){
         val p=Paint().apply{color=Color.rgb(0,120,55);textSize=18f;typeface=Typeface.MONOSPACE};var tick=0
-        override fun onDraw(x:Canvas){super.onDraw(x);x.drawColor(Color.rgb(1,7,4));val chars="01{}<>#@+";val cols=(width/34).coerceAtLeast(1);for(i in 0..cols){for(j in 0..height/48){val y=j*48+(tick+i*37)%48;val ch=chars[(i*7+j*3+tick)%chars.length].toString();p.alpha=35+((i+j+tick)%5)*30;x.drawText(ch,(i*34).toFloat(),y.toFloat(),p)}}tick=(tick+2)%500;postInvalidateDelayed(70)}
+        override fun onDraw(x:Canvas){super.onDraw(x);x.drawColor(Color.rgb(1,7,4));val chars="01{}<>#@+";val cols=(width/34).coerceAtLeast(1);for(i in 0..cols){for(j in 0..(height/48)){val y=j*48+(tick+i*37)%48;val ch=chars[(i*7+j*3+tick)%chars.length].toString();p.alpha=35+((i+j+tick)%5)*30;x.drawText(ch,(i*34).toFloat(),y.toFloat(),p)}};tick=(tick+2)%500;postInvalidateDelayed(70)}
     }
     class RadarView(c:Context):View(c){
         val p=Paint().apply{style=Paint.Style.STROKE;strokeWidth=3f;color=Color.rgb(0,255,119)};var a=0f
