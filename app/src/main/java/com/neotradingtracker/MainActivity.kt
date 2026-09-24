@@ -19,6 +19,7 @@ import android.text.TextWatcher
 import androidx.work.*
 import java.util.concurrent.TimeUnit
 import org.json.JSONObject
+import org.json.JSONArray
 import java.net.URL
 import kotlin.concurrent.thread
 import kotlin.math.*
@@ -156,10 +157,54 @@ class MainActivity : Activity() {
         if(!target.isNaN() && price>=target.toDouble()){Toast.makeText(this,coin+" alert reached: $"+fmt(price),Toast.LENGTH_LONG).show()}
     }
 
+    data class BacktestResult(val wins:Int,val losses:Int,val unresolved:Int,val periodDays:Int){
+        val sample:Int get()=wins+losses
+        val winRate:Double get()=if(sample==0)0.0 else wins*100.0/sample
+    }
+    private fun backtest(symbol:String,done:(BacktestResult?)->Unit){
+        thread {
+            try {
+                val end=System.currentTimeMillis()
+                val start=end-90L*24L*60L*60L*1000L
+                val url="https://api.binance.com/api/v3/klines?symbol="+symbol+"USDT&interval=4h&startTime="+start+"&endTime="+end+"&limit=1000"
+                val a=JSONArray(URL(url).readText())
+                data class K(val h:Double,val l:Double,val c:Double)
+                val k=mutableListOf<K>()
+                for(i in 0 until a.length()){val x=a.getJSONArray(i);k.add(K(x.getString(2).toDouble(),x.getString(3).toDouble(),x.getString(4).toDouble()))}
+                var wins=0;var losses=0;var unresolved=0
+                val fee=.001
+                for(i in 6 until k.size-6){
+                    val prev=k[i-6].c
+                    val price=k[i].c
+                    val change=(price-prev)/prev*100.0
+                    var low=Double.MAX_VALUE;var high=-Double.MAX_VALUE
+                    for(j in i-5..i){low=min(low,k[j].l);high=max(high,k[j].h)}
+                    val range=(high-low).coerceAtLeast(price*.001)
+                    val pos=(price-low)/range
+                    val signal=when{change>1.0&&pos<.82->"ENTER";change< -3.0||pos>.94->"NO ACTION";else->"WAIT"}
+                    if(signal!="ENTER")continue
+                    val entry=price*(1.0+fee)
+                    val target=entry*1.015
+                    val stop=entry*.975
+                    var outcome=0
+                    for(j in i+1..min(i+6,k.lastIndex)){
+                        val hitStop=k[j].l<=stop
+                        val hitTarget=k[j].h>=target*(1.0+fee)
+                        if(hitStop&&hitTarget){outcome=-1;break}
+                        if(hitTarget){outcome=1;break}
+                        if(hitStop){outcome=-1;break}
+                    }
+                    when(outcome){1->wins++;-1->losses++;else->unresolved++}
+                }
+                runOnUiThread{done(BacktestResult(wins,losses,unresolved,90))}
+            }catch(_:Exception){runOnUiThread{done(null)}}
+        }
+    }
+
     private fun coinCard(c:String,p:Double,ch:Double,s:String,bid:Double){
         val accent=if(s=="ENTER")green else if(s=="NO ACTION")Color.rgb(255,75,55) else gold;val card=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,16,18,16);background=panel(accent)}
         val top=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL};top.addView(t(c+" // USDT",20f,gold).apply{typeface=Typeface.create(Typeface.MONOSPACE,Typeface.BOLD)},LinearLayout.LayoutParams(0,-2,1f));top.addView(t(" "+s+" ",13f,accent).apply{gravity=Gravity.CENTER;background=panel(accent)});card.addView(top)
-        card.addView(t("$"+fmt(p),28f,Color.WHITE).apply{typeface=Typeface.create(Typeface.MONOSPACE,Typeface.BOLD)});card.addView(t("24H VECTOR  "+(if(ch>=0)"▲ " else "▼ ")+"%.2f".format(abs(ch))+"%   //   IDEAL BID  $"+fmt(bid),13f,if(ch>=0)green else Color.rgb(255,90,70)));card.addView(t("ANALYSIS // "+s+"     CONFIDENCE VECTOR // EXPERIMENTAL",11f,accent));val meter=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply{max=100;progress=((abs(ch)*10)+35).toInt().coerceIn(35,95);progressTintList=android.content.res.ColorStateList.valueOf(accent);progressBackgroundTintList=android.content.res.ColorStateList.valueOf(Color.rgb(20,45,32))};card.addView(meter,LinearLayout.LayoutParams(-1,8).apply{setMargins(12,2,12,2)});card.addView(SparkView(this,ch),LinearLayout.LayoutParams(-1,90))
+        card.addView(t("$"+fmt(p),28f,Color.WHITE).apply{typeface=Typeface.create(Typeface.MONOSPACE,Typeface.BOLD)});card.addView(t("24H VECTOR  "+(if(ch>=0)"▲ " else "▼ ")+"%.2f".format(abs(ch))+"%   //   IDEAL BID  $"+fmt(bid),13f,if(ch>=0)green else Color.rgb(255,90,70)));card.addView(t("ANALYSIS // "+s+"     LIVE RULE SIGNAL",11f,accent));val bt=t("BACKTEST // CALCULATING 90D HISTORY...",11f,Color.LTGRAY);card.addView(bt);backtest(c){r->bt.text=if(r==null)"BACKTEST // DATA UNAVAILABLE" else if(r.sample==0)"BACKTEST // NO HISTORICAL ENTER SAMPLES IN 90D" else "BACKTEST // "+r.wins+"/"+r.sample+" WINS · "+"%.1f".format(r.winRate)+"% · SAMPLE "+r.sample+" · 90D · 4H CANDLES";bt.setTextColor(if(r!=null&&r.sample>0)green else Color.LTGRAY)};val meter=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply{max=100;progress=((abs(ch)*10)+35).toInt().coerceIn(35,95);progressTintList=android.content.res.ColorStateList.valueOf(accent);progressBackgroundTintList=android.content.res.ColorStateList.valueOf(Color.rgb(20,45,32))};card.addView(meter,LinearLayout.LayoutParams(-1,8).apply{setMargins(12,2,12,2)});card.addView(SparkView(this,ch),LinearLayout.LayoutParams(-1,90))
         val actions=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL};actions.addView(neoButton("COIN DETAIL",green){detail(c,p,ch,s,bid)},LinearLayout.LayoutParams(0,-2,1f));actions.addView(neoButton("ARM ALERT",gold){alertDialog(c,p)},LinearLayout.LayoutParams(0,-2,1f));card.addView(actions);results.addView(card,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,8,0,8)})
     }
 
@@ -232,7 +277,7 @@ class MainActivity : Activity() {
     private fun tradeHub(){val box=screen("QUICK TRADE");box.addView(sectionLabel("EXECUTION DESK"));box.addView(neoButton("⚡ SANJI // BUY & SELL",green){openSanji()});box.addView(spacer(8));box.addView(sectionLabel("QUICK EXCHANGE LINKS"));box.addView(neoButton("BYBIT // TRADE",gold){openTradeLink("https://www.bybit.com/en/trade/spot/","Bybit")});box.addView(neoButton("OKX // BUY CRYPTO",green){openTradeLink("https://www.okx.com/buy-crypto","OKX")});box.addView(neoButton("COINBASE ADVANCED // TRADE",gold){openTradeLink("https://www.coinbase.com/advanced-trade","Coinbase")});box.addView(spacer(10));box.addView(t("Connect an exchange before live orders are enabled. API secrets are never hard-coded into the app.",12f,Color.LTGRAY));box.addView(spacer(10));box.addView(neoButton("BINANCE SPOT // CONNECT",gold){Toast.makeText(this,"Secure exchange connection setup required",Toast.LENGTH_LONG).show()});box.addView(spacer(8));box.addView(t("BUY / SELL panel will unlock after authenticated exchange connection. Market, limit, quantity, estimated total and final confirmation will be shown before every order.",12f,green));box.addView(spacer(12));box.addView(bottomNav())}
     private fun detail(c:String,p:Double,ch:Double,s:String,bid:Double){
         val box=screen(c+" / USDT");box.addView(t("$"+fmt(p),29f,Color.WHITE));box.addView(t((if(ch>=0)"▲ +" else "▼ ")+"%.2f".format(ch)+"% (24h)",14f,if(ch>=0)green else Color.RED));box.addView(spacer(12));addTokenIdentity(box,c);box.addView(spacer(12))
-        val intelligence=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(16,14,16,14);background=panel(gold)};intelligence.addView(t("AI ACTION     "+s,16f,gold));intelligence.addView(t("◎ IDEAL BID     $"+fmt(bid),14f,green));intelligence.addView(t("◉ TARGET 1      $"+fmt(p*1.015),14f));intelligence.addView(t("◉ TARGET 2      $"+fmt(p*1.035),14f));intelligence.addView(t("◇ STOP LOSS     $"+fmt(p*.975),14f,Color.rgb(255,90,70)));box.addView(intelligence);box.addView(spacer(12));box.addView(neoButton("⚡ BUY / SELL WITH SANJI",gold){openSanji()});box.addView(spacer(8));box.addView(neoButton("LIVE CANDLES",green){chart(c)});box.addView(spacer(8));box.addView(neoButton("♢ SET ALERT",gold){alertDialog(c,p)});box.addView(spacer(10));box.addView(t("1m    5m    15m    1h    4h    1D",12f,green));box.addView(spacer(12));box.addView(bottomNav())
+        val intelligence=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(16,14,16,14);background=panel(gold)};intelligence.addView(t("AI ACTION     "+s,16f,gold));intelligence.addView(t("◎ IDEAL BID     $"+fmt(bid),14f,green));intelligence.addView(t("◉ TARGET 1      $"+fmt(p*1.015),14f));intelligence.addView(t("◉ TARGET 2      $"+fmt(p*1.035),14f));intelligence.addView(t("◇ STOP LOSS     $"+fmt(p*.975),14f,Color.rgb(255,90,70)));box.addView(intelligence);val historical=t("BACKTEST // CALCULATING 90D HISTORY...",12f,gold);box.addView(historical);backtest(c){r->historical.text=if(r==null)"BACKTEST // DATA UNAVAILABLE" else if(r.sample==0)"BACKTEST // NO HISTORICAL ENTER SAMPLES IN 90D" else "BACKTEST // "+r.wins+"/"+r.sample+" WINS · "+"%.1f".format(r.winRate)+"% · SAMPLE "+r.sample+" · PERIOD 90D\nRULES // ENTER SIGNAL · +1.5% TARGET · -2.5% STOP · 0.1% FEE/LEG · 24H OUTCOME WINDOW";historical.setTextColor(if(r!=null&&r.sample>0)green else Color.LTGRAY)};box.addView(spacer(12));box.addView(neoButton("⚡ BUY / SELL WITH SANJI",gold){openSanji()});box.addView(spacer(8));box.addView(neoButton("LIVE CANDLES",green){chart(c)});box.addView(spacer(8));box.addView(neoButton("♢ SET ALERT",gold){alertDialog(c,p)});box.addView(spacer(10));box.addView(t("1m    5m    15m    1h    4h    1D",12f,green));box.addView(spacer(12));box.addView(bottomNav())
     }
     private fun alertCenter(){
         val box=screen("SET ALERT");box.addView(sectionLabel("ALERT PROTOCOL"));box.addView(t("CUSTOM PRICE & % ALERTS",13f,gold))
