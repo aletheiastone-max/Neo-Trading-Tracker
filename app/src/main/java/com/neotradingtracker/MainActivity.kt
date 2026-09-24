@@ -26,6 +26,7 @@ class MainActivity : Activity() {
     private lateinit var body: LinearLayout
     private lateinit var results: LinearLayout
     private val watch=linkedSetOf("BTC","ETH","XRP","SOL","DOGE","LINK","AVAX")
+    private val discover=linkedSetOf("BTC","ETH","XRP","SOL","DOGE","LINK","AVAX","ADA","BNB","TRX","SUI","HBAR","LTC","BCH","DOT","UNI","AAVE","NEAR","APT","ARB","OP","PEPE","SHIB")
 
     override fun onCreate(b:Bundle?){super.onCreate(b);window.statusBarColor=Color.BLACK;window.navigationBarColor=Color.BLACK;if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),44);createChannel();loadWatchlist();boot()}
     private fun loadWatchlist(){ val saved=getSharedPreferences("neo_watch",MODE_PRIVATE).getStringSet("symbols",null); if(saved!=null){watch.clear();watch.addAll(saved.sorted())} }
@@ -99,9 +100,9 @@ class MainActivity : Activity() {
     }
     private fun markets(){
         val box=screen("LIVE MARKETS");val search=EditText(this).apply{hint="Search coins...";setTextColor(Color.WHITE);setHintTextColor(Color.GRAY);setPadding(18,16,18,16);background=panel(green)};box.addView(search);box.addView(spacer(10))
-        box.addView(sectionLabel("MARKET UPLINK"));box.addView(t("ALL     FAVOURITES     GAINERS     LOSERS",12f,gold));box.addView(HudDivider(this),LinearLayout.LayoutParams(-1,14))
+        box.addView(t("Type a symbol then press Enter to add it. Long-press any listed coin to add/remove it from your watchlist.",11f,Color.LTGRAY));box.addView(sectionLabel("MARKET UPLINK"));box.addView(t("ALL     FAVOURITES     GAINERS     LOSERS",12f,gold));box.addView(HudDivider(this),LinearLayout.LayoutParams(-1,14))
         val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};box.addView(list)
-        fun loadMarket(filter:String=""){list.removeAllViews();watch.filter{it.contains(filter.uppercase())}.forEach { coin ->
+        fun loadMarket(filter:String=""){list.removeAllViews();(if(filter.isBlank()) watch.toList() else discover.filter{it.contains(filter.uppercase())}).forEach { coin ->
             thread {
                 try {
                     val j=JSONObject(URL("https://api.binance.com/api/v3/ticker/24hr?symbol="+coin+"USDT").readText())
@@ -111,7 +112,7 @@ class MainActivity : Activity() {
                         r.addView(t(coin,17f,gold),LinearLayout.LayoutParams(0,-2,.45f))
                         r.addView(t("$"+fmt(p),14f,Color.WHITE),LinearLayout.LayoutParams(0,-2,.75f))
                         r.addView(t((if(ch>=0)"+ " else "")+"%.2f".format(ch)+"%",13f,if(ch>=0)green else Color.rgb(255,75,55)),LinearLayout.LayoutParams(0,-2,.55f))
-                        r.setOnClickListener { chart(coin) }
+                        r.setOnClickListener { chart(coin) }; r.setOnLongClickListener{ if(watch.contains(coin)){watch.remove(coin);saveWatchlist();Toast.makeText(this,"Removed "+coin+" from watchlist",Toast.LENGTH_SHORT).show()}else{watch.add(coin);saveWatchlist();Toast.makeText(this,"Added "+coin+" to watchlist",Toast.LENGTH_SHORT).show()};loadMarket(search.text.toString());true }
                         list.addView(r,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,5,0,5)})
                     }
                 } catch (_:Exception) { }
@@ -143,7 +144,7 @@ class MainActivity : Activity() {
     }
 
     private fun watchlist(){
-        val box=screen("WATCHLIST");box.addView(sectionLabel("TRACKED ASSETS"));val add=neoButton("+ ADD COIN",gold){markets()};box.addView(add);box.addView(spacer(10));watch.forEach{coin->val r=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;background=panel(green);setPadding(12,8,12,8)};r.addView(t("☆  "+coin,16f,gold),LinearLayout.LayoutParams(0,-2,1f));r.addView(t("TRACKING",11f,green));r.setOnClickListener{markets()};box.addView(r,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,4,0,4)})};box.addView(spacer(14));box.addView(t("WATCHLIST NEWS // INTELLIGENCE FEED",13f,gold));val news=listOf("BTC  //  MARKET INTELLIGENCE FEED","ETH  //  NETWORK ACTIVITY FEED","SOL  //  ECOSYSTEM ACTIVITY FEED");news.forEach{box.addView(t(it+"\nLive news connection pending.",12f,Color.LTGRAY).apply{background=panel(gold)},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,4,0,4)})};box.addView(spacer(12));box.addView(bottomNav())
+        val box=screen("WATCHLIST");box.addView(sectionLabel("TRACKED ASSETS"));val add=neoButton("+ ADD COIN",gold){markets()};box.addView(add);box.addView(spacer(10));watch.toList().forEach{coin->val r=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;background=panel(green);setPadding(12,8,12,8)};r.addView(t("☆  "+coin,16f,gold),LinearLayout.LayoutParams(0,-2,1f));r.addView(t("TRACKING",11f,green));r.setOnClickListener{chart(coin)};r.setOnLongClickListener{watch.remove(coin);saveWatchlist();watchlist();true};box.addView(r,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,4,0,4)})};box.addView(spacer(14));box.addView(t("WATCHLIST NEWS // INTELLIGENCE FEED",13f,gold));val news=listOf("BTC  //  MARKET INTELLIGENCE FEED","ETH  //  NETWORK ACTIVITY FEED","SOL  //  ECOSYSTEM ACTIVITY FEED");news.forEach{box.addView(t(it+"\nLive news connection pending.",12f,Color.LTGRAY).apply{background=panel(gold)},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,4,0,4)})};box.addView(spacer(12));box.addView(bottomNav())
     }
     private fun menu(){
         val box=screen("N E O // MENU");listOf("⌂  DASHBOARD","▥  MARKETS","◎  SCANNER","★  WATCHLIST","♢  ALERTS","▤  TRADE LOG","⚙  SETTINGS","◈  CONNECTION","◐  APPEARANCE","?  HELP").forEach{label->box.addView(neoButton(label,if(label.contains("DASHBOARD"))green else Color.LTGRAY){when{label.contains("MARKETS")->markets();label.contains("SCANNER")->home();label.contains("WATCHLIST")->watchlist();label.contains("ALERTS")->alertCenter();else->Toast.makeText(this,label.substringAfter("  ")+" module",Toast.LENGTH_SHORT).show()}},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,3,0,3)})}
