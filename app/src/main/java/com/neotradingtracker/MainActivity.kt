@@ -3,6 +3,7 @@ package com.neotradingtracker
 import android.app.*
 import android.os.*
 import android.content.*
+import android.content.pm.PackageManager
 import android.graphics.*
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
@@ -19,7 +20,8 @@ class MainActivity : Activity() {
     private lateinit var body: LinearLayout
     private val watch=linkedSetOf("BTC","ETH","XRP","SOL","DOGE")
 
-    override fun onCreate(b:Bundle?){super.onCreate(b);window.statusBarColor=Color.BLACK;boot()}
+    override fun onCreate(b:Bundle?){super.onCreate(b);window.statusBarColor=Color.BLACK;window.navigationBarColor=Color.BLACK;if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),44);createChannel();boot()}
+    private fun createChannel(){if(Build.VERSION.SDK_INT>=26){getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel("neo_alerts","Neo Price Alerts",NotificationManager.IMPORTANCE_HIGH))}}
     fun t(s:String,sz:Float=16f,c:Int=green)=TextView(this).apply{text=s;textSize=sz;setTextColor(c);typeface=Typeface.MONOSPACE;setPadding(12,10,12,10)}
     private fun panel(stroke:Int=green)=GradientDrawable().apply{setColor(Color.argb(225,2,14,10));cornerRadius=20f;setStroke(2,stroke)}
 
@@ -64,7 +66,7 @@ class MainActivity : Activity() {
             val range=(high-low).coerceAtLeast(p*.001);val pos=(p-low)/range
             val signal=when{change>1.0&&pos<.82->"ENTER";change< -3.0||pos>.94->"NO ACTION";else->"WAIT"}
             val bid=when(signal){"ENTER"->p-range*.08;"WAIT"->p-range*.16;else->low+range*.25}
-            runOnUiThread{coinCard(coin,p,change,signal,bid)}
+            runOnUiThread{checkAlert(coin,p);coinCard(coin,p,change,signal,bid)}
         }catch(e:Exception){runOnUiThread{body.addView(t("$coin  // DATA LINK UNAVAILABLE",14f,Color.LTGRAY))}}}}
     }
 
@@ -84,10 +86,12 @@ class MainActivity : Activity() {
         w.setOnKeyListener{_,key,e->if(key==KeyEvent.KEYCODE_BACK&&e.action==KeyEvent.ACTION_UP){home();true}else false}
     }
 
+    private fun checkAlert(c:String,p:Double){val sp=getSharedPreferences("neo_alerts",MODE_PRIVATE);val target=sp.getString(c,null)?.toDoubleOrNull()?:return;val last=sp.getString(c+"_last",null)?.toDoubleOrNull();if(last!=null&&((last<target&&p>=target)||(last>target&&p<=target))){val n=Notification.Builder(this,"neo_alerts").setSmallIcon(android.R.drawable.stat_notify_more).setContentTitle("$c PRICE TRIGGER").setContentText("$c crossed ${fmt(target)} // LIVE ${fmt(p)}").setAutoCancel(true).build();getSystemService(NotificationManager::class.java).notify(c.hashCode(),n)};sp.edit().putString(c+"_last",p.toString()).apply()}
+
     private fun alertDialog(c:String,p:Double){
         val input=EditText(this).apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL;setText(fmt(p))}
         AlertDialog.Builder(this).setTitle("$c price alert").setMessage("Notify when a future scan reaches this USDT price").setView(input)
-            .setPositiveButton("SAVE"){_,_->Toast.makeText(this,"Alert armed for $c at $${input.text}",Toast.LENGTH_LONG).show()}.setNegativeButton("CANCEL",null).show()
+            .setPositiveButton("SAVE"){_,_->val v=input.text.toString().toDoubleOrNull();if(v!=null){getSharedPreferences("neo_alerts",MODE_PRIVATE).edit().putString(c,v.toString()).putString(c+"_last",p.toString()).apply();Toast.makeText(this,"Alert armed for $c at ${fmt(v)}",Toast.LENGTH_LONG).show()}}.setNegativeButton("CANCEL",null).show()
     }
     private fun fmt(v:Double)=if(v>=100)"%.2f".format(v) else if(v>=1)"%.4f".format(v) else "%.6f".format(v)
 
