@@ -33,7 +33,7 @@ class MainActivity : Activity() {
         val f=FrameLayout(this);f.setBackgroundColor(Color.rgb(1,8,5));f.addView(MatrixView(this))
         val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;gravity=Gravity.CENTER;setPadding(28,28,28,28)}
         val terminal=t("",20f);box.addView(t("NEO TRADING TRACKER",28f,gold));box.addView(terminal);f.addView(box);setContentView(f)
-        val lines=listOf("> SYSTEM ACCESS...","You've hacked it Neo.","Knock knock.","☎  SECURE LINE CONNECTED")
+        val lines=listOf("> SYSTEM ACCESS...","You've hacked it Neo.","Knock knock.","SECURE LINE // CONNECTED")
         var i=0;val h=Handler(mainLooper);val r=object:Runnable{override fun run(){if(i<lines.size){terminal.append(lines[i++]+System.lineSeparator());h.postDelayed(this,700)}else h.postDelayed({payphone()},700)}};h.post(r)
     }
 
@@ -79,13 +79,19 @@ class MainActivity : Activity() {
         val actions=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL};actions.addView(neoButton("COIN DETAIL",green){detail(c,p,ch,s,bid)},LinearLayout.LayoutParams(0,-2,1f));actions.addView(neoButton("ARM ALERT",gold){alertDialog(c,p)},LinearLayout.LayoutParams(0,-2,1f));card.addView(actions);results.addView(card,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,8,0,8)})
     }
 
+    private fun sectionLabel(s:String)=t("▰  "+s.uppercase()+"  //",11f,gold).apply{letterSpacing=.12f}
+    private fun bottomNav():LinearLayout{
+        val n=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER;background=panel(gold);setPadding(4,5,4,5)}
+        listOf("⌂\nHOME","◎\nSCAN","▥\nMARKETS","☆\nWATCH","♢\nALERTS").forEach{v->val b=t(v,9f,if(v.contains("HOME"))gold else green).apply{gravity=Gravity.CENTER;setOnClickListener{when{v.contains("HOME")->home();v.contains("SCAN")->scan();v.contains("MARKETS")->markets();v.contains("WATCH")->watchlist();else->alertCenter()}}};n.addView(b,LinearLayout.LayoutParams(0,62,1f))}
+        return n
+    }
     private fun screen(title:String):LinearLayout{
         val f=FrameLayout(this).apply{setBackgroundColor(Color.BLACK)};f.addView(MatrixView(this));val sc=ScrollView(this);val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(24,30,24,80)}
         val nav=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL};nav.addView(neoButton("‹ BACK",gold){home()},LinearLayout.LayoutParams(0,-2,.35f));nav.addView(t(title,21f,Color.WHITE).apply{gravity=Gravity.CENTER;typeface=Typeface.create(Typeface.MONOSPACE,Typeface.BOLD)},LinearLayout.LayoutParams(0,-2,1f));box.addView(nav);box.addView(spacer(16));sc.addView(box);f.addView(sc);setContentView(f);return box
     }
     private fun markets(){
         val box=screen("LIVE MARKETS");val search=EditText(this).apply{hint="Search coins...";setTextColor(Color.WHITE);setHintTextColor(Color.GRAY);setPadding(18,16,18,16);background=panel(green)};box.addView(search);box.addView(spacer(10))
-        box.addView(t("ALL     FAVOURITES     GAINERS     LOSERS",12f,gold));box.addView(spacer(6))
+        box.addView(sectionLabel("MARKET UPLINK"));box.addView(t("ALL     FAVOURITES     GAINERS     LOSERS",12f,gold));box.addView(HudDivider(this),LinearLayout.LayoutParams(-1,14))
         watch.forEach { coin ->
             thread {
                 try {
@@ -108,7 +114,7 @@ class MainActivity : Activity() {
         val intelligence=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(16,14,16,14);background=panel(gold)};intelligence.addView(t("AI ACTION     "+s,16f,gold));intelligence.addView(t("◎ IDEAL BID     $"+fmt(bid),14f,green));intelligence.addView(t("◉ TARGET 1      $"+fmt(p*1.015),14f));intelligence.addView(t("◉ TARGET 2      $"+fmt(p*1.035),14f));intelligence.addView(t("◇ STOP LOSS     $"+fmt(p*.975),14f,Color.rgb(255,90,70)));box.addView(intelligence);box.addView(spacer(12));box.addView(neoButton("LIVE CANDLES",green){chart(c)});box.addView(spacer(8));box.addView(neoButton("♢ SET ALERT",gold){alertDialog(c,p)});box.addView(spacer(10));box.addView(t("1m    5m    15m    1h    4h    1D",12f,green))
     }
     private fun alertCenter(){
-        val box=screen("SET ALERT");box.addView(t("CUSTOM PRICE & % ALERTS",13f,gold))
+        val box=screen("SET ALERT");box.addView(sectionLabel("ALERT PROTOCOL"));box.addView(t("CUSTOM PRICE & % ALERTS",13f,gold))
         box.addView(t("PRICE     % CHANGE     INDICATOR",12f,green))
         val card=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(16,12,16,12);background=panel(green)}
         card.addView(t("Alert me when price is",13f,Color.WHITE))
@@ -121,7 +127,7 @@ class MainActivity : Activity() {
     }
 
     private fun watchlist(){
-        val box=screen("WATCHLIST");val add=neoButton("+ ADD COIN",gold){markets()};box.addView(add);box.addView(spacer(10));watch.forEach{coin->val r=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;background=panel(green);setPadding(12,8,12,8)};r.addView(t("☆  "+coin,16f,gold),LinearLayout.LayoutParams(0,-2,1f));r.addView(t("TRACKING",11f,green));r.setOnClickListener{markets()};box.addView(r,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,4,0,4)})};box.addView(spacer(14));box.addView(t("WATCHLIST NEWS // INTELLIGENCE FEED",13f,gold));val news=listOf("BTC  //  MARKET INTELLIGENCE FEED","ETH  //  NETWORK ACTIVITY FEED","SOL  //  ECOSYSTEM ACTIVITY FEED");news.forEach{box.addView(t(it+"\nLive news connection pending.",12f,Color.LTGRAY).apply{background=panel(gold)},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,4,0,4)})}
+        val box=screen("WATCHLIST");box.addView(sectionLabel("TRACKED ASSETS"));val add=neoButton("+ ADD COIN",gold){markets()};box.addView(add);box.addView(spacer(10));watch.forEach{coin->val r=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;background=panel(green);setPadding(12,8,12,8)};r.addView(t("☆  "+coin,16f,gold),LinearLayout.LayoutParams(0,-2,1f));r.addView(t("TRACKING",11f,green));r.setOnClickListener{markets()};box.addView(r,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,4,0,4)})};box.addView(spacer(14));box.addView(t("WATCHLIST NEWS // INTELLIGENCE FEED",13f,gold));val news=listOf("BTC  //  MARKET INTELLIGENCE FEED","ETH  //  NETWORK ACTIVITY FEED","SOL  //  ECOSYSTEM ACTIVITY FEED");news.forEach{box.addView(t(it+"\nLive news connection pending.",12f,Color.LTGRAY).apply{background=panel(gold)},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,4,0,4)})}
     }
     private fun menu(){
         val box=screen("N E O // MENU");listOf("⌂  DASHBOARD","▥  MARKETS","◎  SCANNER","★  WATCHLIST","♢  ALERTS","▤  TRADE LOG","⚙  SETTINGS","◈  CONNECTION","◐  APPEARANCE","?  HELP").forEach{label->box.addView(neoButton(label,if(label.contains("DASHBOARD"))green else Color.LTGRAY){when{label.contains("MARKETS")->markets();label.contains("SCANNER")->home();label.contains("WATCHLIST")->watchlist();label.contains("ALERTS")->alertCenter();else->Toast.makeText(this,label.substringAfter("  ")+" module",Toast.LENGTH_SHORT).show()}},LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,3,0,3)})}
