@@ -275,8 +275,41 @@ class MainActivity : Activity() {
     private fun openTradeLink(url:String,name:String){try{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(url)))}catch(_:Exception){Toast.makeText(this,"Unable to open "+name,Toast.LENGTH_LONG).show()}}
     private fun openSanji(){val tg=Uri.parse("https://t.me/SanjiTradingBot");openTradeLink(tg.toString(),"Sanji")}
     private fun tradeHub(){val box=screen("QUICK TRADE");box.addView(sectionLabel("EXECUTION DESK"));box.addView(neoButton("⚡ SANJI // BUY & SELL",green){openSanji()});box.addView(spacer(8));box.addView(sectionLabel("QUICK EXCHANGE LINKS"));box.addView(neoButton("BYBIT // TRADE",gold){openTradeLink("https://www.bybit.com/en/trade/spot/","Bybit")});box.addView(neoButton("OKX // BUY CRYPTO",green){openTradeLink("https://www.okx.com/buy-crypto","OKX")});box.addView(neoButton("COINBASE ADVANCED // TRADE",gold){openTradeLink("https://www.coinbase.com/advanced-trade","Coinbase")});box.addView(spacer(10));box.addView(t("Connect an exchange before live orders are enabled. API secrets are never hard-coded into the app.",12f,Color.LTGRAY));box.addView(spacer(10));box.addView(neoButton("BINANCE SPOT // CONNECT",gold){Toast.makeText(this,"Secure exchange connection setup required",Toast.LENGTH_LONG).show()});box.addView(spacer(8));box.addView(t("BUY / SELL panel will unlock after authenticated exchange connection. Market, limit, quantity, estimated total and final confirmation will be shown before every order.",12f,green));box.addView(spacer(12));box.addView(bottomNav())}
+    private fun startMinuteBanner(symbol:String,banner:TextView){
+        val handler=Handler(mainLooper)
+        var previous:Double?=null
+        val task=object:Runnable{
+            override fun run(){
+                thread{
+                    try{
+                        val j=JSONObject(URL("https://api.binance.com/api/v3/ticker/price?symbol="+symbol+"USDT").readText())
+                        val price=j.getDouble("price")
+                        runOnUiThread{
+                            if(!banner.isAttachedToWindow)return@runOnUiThread
+                            val before=previous
+                            if(before==null){
+                                banner.text="1 MINUTE MOVE // BASELINE $"+fmt(price)+" // NEXT UPDATE 60S"
+                                banner.setTextColor(gold);banner.background=panel(gold)
+                            }else{
+                                val move=(price-before)/before*100.0
+                                val up=move>=0.0
+                                val accent=if(up)green else Color.rgb(255,75,55)
+                                banner.text=(if(up)"▲ " else "▼ ")+"1 MINUTE // "+(if(up)"+" else "")+"%.3f".format(move)+"%   //   $"+fmt(price)
+                                banner.setTextColor(accent);banner.background=panel(accent)
+                                banner.animate().alpha(.35f).scaleX(.985f).setDuration(120).withEndAction{banner.animate().alpha(1f).scaleX(1f).setDuration(280).start()}.start()
+                            }
+                            previous=price
+                            handler.postDelayed(this,60000)
+                        }
+                    }catch(_:Exception){runOnUiThread{if(banner.isAttachedToWindow){banner.text="1 MINUTE MOVE // DATA LINK RETRYING";banner.setTextColor(Color.LTGRAY);handler.postDelayed(this,60000)}}}
+                }
+            }
+        }
+        handler.post(task)
+    }
+
     private fun detail(c:String,p:Double,ch:Double,s:String,bid:Double){
-        val box=screen(c+" / USDT");box.addView(t("$"+fmt(p),29f,Color.WHITE));box.addView(t((if(ch>=0)"▲ +" else "▼ ")+"%.2f".format(ch)+"% (24h)",14f,if(ch>=0)green else Color.RED));box.addView(spacer(12));addTokenIdentity(box,c);box.addView(spacer(12))
+        val box=screen(c+" / USDT");box.addView(t("$"+fmt(p),29f,Color.WHITE));box.addView(t((if(ch>=0)"▲ +" else "▼ ")+"%.2f".format(ch)+"% (24h)",14f,if(ch>=0)green else Color.RED));val minuteBanner=t("1 MINUTE MOVE // LOADING...",16f,gold).apply{gravity=Gravity.CENTER;background=panel(gold);typeface=Typeface.create(Typeface.MONOSPACE,Typeface.BOLD)};box.addView(minuteBanner);startMinuteBanner(c,minuteBanner);box.addView(spacer(12));addTokenIdentity(box,c);box.addView(spacer(12))
         val intelligence=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(16,14,16,14);background=panel(gold)};intelligence.addView(t("AI ACTION     "+s,16f,gold));intelligence.addView(t("◎ IDEAL BID     $"+fmt(bid),14f,green));intelligence.addView(t("◉ TARGET 1      $"+fmt(p*1.015),14f));intelligence.addView(t("◉ TARGET 2      $"+fmt(p*1.035),14f));intelligence.addView(t("◇ STOP LOSS     $"+fmt(p*.975),14f,Color.rgb(255,90,70)));box.addView(intelligence);val historical=t("BACKTEST // CALCULATING 90D HISTORY...",12f,gold);box.addView(historical);backtest(c){r->historical.text=if(r==null)"BACKTEST // DATA UNAVAILABLE" else if(r.sample==0)"BACKTEST // NO HISTORICAL ENTER SAMPLES IN 90D" else "BACKTEST // "+r.wins+"/"+r.sample+" WINS · "+"%.1f".format(r.winRate)+"% · SAMPLE "+r.sample+" · PERIOD 90D\nRULES // ENTER SIGNAL · +1.5% TARGET · -2.5% STOP · 0.1% FEE/LEG · 24H OUTCOME WINDOW";historical.setTextColor(if(r!=null&&r.sample>0)green else Color.LTGRAY)};box.addView(spacer(12));box.addView(neoButton("⚡ BUY / SELL WITH SANJI",gold){openSanji()});box.addView(spacer(8));box.addView(neoButton("LIVE CANDLES",green){chart(c)});box.addView(spacer(8));box.addView(neoButton("♢ SET ALERT",gold){alertDialog(c,p)});box.addView(spacer(10));box.addView(t("1m    5m    15m    1h    4h    1D",12f,green));box.addView(spacer(12));box.addView(bottomNav())
     }
     private fun alertCenter(){
