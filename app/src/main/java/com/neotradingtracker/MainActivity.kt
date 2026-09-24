@@ -31,28 +31,62 @@ class MainActivity : Activity() {
     private val discover=linkedSetOf("BTC","ETH","XRP","SOL","DOGE","LINK","AVAX","ADA","BNB","TRX","SUI","HBAR","LTC","BCH","DOT","UNI","AAVE","NEAR","APT","ARB","OP","PEPE","SHIB")
     private val allSymbols=mutableListOf<String>()
     private fun loadAllSymbols(done:()->Unit={}){thread{try{val root=JSONObject(URL("https://api.binance.com/api/v3/exchangeInfo").readText());val arr=root.getJSONArray("symbols");val found=mutableListOf<String>();for(i in 0 until arr.length()){val o=arr.getJSONObject(i);if(o.optString("quoteAsset")=="USDT"&&o.optString("status")=="TRADING")found.add(o.optString("baseAsset"))};synchronized(allSymbols){allSymbols.clear();allSymbols.addAll(found.distinct().sorted())};runOnUiThread{done()}}catch(_:Exception){runOnUiThread{done()}}}}
-    private val tokenContracts=mapOf(
-        "USDT" to "Ethereum (ERC-20) // 0xdAC17F958D2ee523a2206206994597C13D831ec7",
-        "LINK" to "Ethereum (ERC-20) // 0x514910771AF9Ca656af840dff83E8264EcF986CA",
-        "SHIB" to "Ethereum (ERC-20) // 0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE",
-        "PEPE" to "Ethereum (ERC-20) // 0x6982508145454Ce325dDbE47a25d4ec3d2311933",
-        "UNI" to "Ethereum (ERC-20) // 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
-        "AAVE" to "Ethereum (ERC-20) // 0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2dDaE9"
-    )
-    private fun contractAddress(c:String)=tokenContracts[c]?.substringAfter("// ")?.trim()
+    data class TokenIdentity(val network:String,val address:String)
+    private val tokenIdentities=mutableMapOf<String,TokenIdentity>()
+    private fun resolveTokenIdentity(symbol:String,done:(TokenIdentity?)->Unit){
+        val q=symbol.trim().lowercase()
+        thread {
+            try {
+                val raw=URL("https://api.coingecko.com/api/v3/search?query="+java.net.URLEncoder.encode(q,"UTF-8")).readText()
+                val coins=JSONObject(raw).getJSONArray("coins")
+                var id:String?=null
+                for(i in 0 until coins.length()){
+                    val o=coins.getJSONObject(i)
+                    if(o.optString("symbol").equals(q,true)){id=o.optString("id");break}
+                }
+                if(id==null){runOnUiThread{done(null)};return@thread}
+                val coin=JSONObject(URL("https://api.coingecko.com/api/v3/coins/"+id+"?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false&sparkline=false").readText())
+                val platforms=coin.optJSONObject("platforms")
+                var identity:TokenIdentity?=null
+                if(platforms!=null){
+                    val preferred=listOf("ethereum","solana","binance-smart-chain","base","arbitrum-one","polygon-pos","avalanche","optimistic-ethereum")
+                    for(net in preferred){
+                        val address=platforms.optString(net,"").trim()
+                        if(address.isNotBlank()){identity=TokenIdentity(net,address);break}
+                    }
+                    if(identity==null){
+                        val keys=platforms.keys()
+                        while(keys.hasNext()){
+                            val net=keys.next();val address=platforms.optString(net,"").trim()
+                            if(address.isNotBlank()){identity=TokenIdentity(net,address);break}
+                        }
+                    }
+                }
+                if(identity!=null) synchronized(tokenIdentities){tokenIdentities[symbol.uppercase()]=identity}
+                runOnUiThread{done(identity)}
+            }catch(_:Exception){runOnUiThread{done(null)}}
+        }
+    }
     private fun addTokenIdentity(box:LinearLayout,c:String){
         box.addView(sectionLabel("TOKEN IDENTITY // VERIFY BEFORE PURCHASE"))
-        val known=tokenContracts[c]
-        if(known!=null){
-            box.addView(t("NETWORK / CONTRACT\n"+known,11f,Color.WHITE).apply{setTextIsSelectable(true)})
-            box.addView(neoButton("COPY CONTRACT ADDRESS",gold){
-                val address=contractAddress(c)?:return@neoButton
-                val clipboard=getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText(c+" contract address",address))
-                Toast.makeText(this,c+" contract copied",Toast.LENGTH_SHORT).show()
-            })
-        }else{
-            box.addView(t("No verified contract address stored for this asset. It may be a native coin, or exist on multiple networks. Use the exchange's exact network/deposit details rather than guessing a contract.",11f,Color.LTGRAY))
+        val status=t("RESOLVING VERIFIED TOKEN IDENTITY...",11f,gold)
+        box.addView(status)
+        val copy=neoButton("COPY TOKEN ADDRESS",gold){}
+        copy.isEnabled=false;copy.alpha=.45f;box.addView(copy)
+        resolveTokenIdentity(c){identity->
+            if(identity==null){
+                status.text="NATIVE COIN OR NO UNIQUE CONTRACT FOUND // "+c+"\nNo contract address will be guessed. Confirm the purchase network in the destination exchange/wallet."
+                status.setTextColor(Color.LTGRAY);copy.isEnabled=false;copy.alpha=.45f
+            }else{
+                status.text="NETWORK // "+identity.network.uppercase()+"\nTOKEN ADDRESS // "+identity.address
+                status.setTextColor(Color.WHITE);status.setTextIsSelectable(true)
+                copy.isEnabled=true;copy.alpha=1f
+                copy.setOnClickListener{
+                    val clipboard=getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText(c+" token address",identity.address))
+                    Toast.makeText(this,c+" address copied",Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
     private val radarPoints=mutableListOf<RadarPoint>()
