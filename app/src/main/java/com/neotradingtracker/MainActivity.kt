@@ -80,7 +80,7 @@ class MainActivity : Activity() {
     }
     private fun markets(){
         val box=screen("LIVE MARKETS");val search=EditText(this).apply{hint="Search coins...";setTextColor(Color.WHITE);setHintTextColor(Color.GRAY);setPadding(18,16,18,16);background=panel(green)};box.addView(search);box.addView(spacer(10))
-        box.addView(t("ALL     FAVOURITES     GAINERS     LOSERS",12f,gold))
+        box.addView(t("ALL     FAVOURITES     GAINERS     LOSERS",12f,gold));box.addView(spacer(6))
         watch.forEach { coin ->
             thread {
                 try {
@@ -100,7 +100,7 @@ class MainActivity : Activity() {
     }
     private fun detail(c:String,p:Double,ch:Double,s:String,bid:Double){
         val box=screen(c+" / USDT");box.addView(t("$"+fmt(p),29f,Color.WHITE));box.addView(t((if(ch>=0)"▲ +" else "▼ ")+"%.2f".format(ch)+"% (24h)",14f,if(ch>=0)green else Color.RED));box.addView(spacer(12))
-        val intelligence=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(16,14,16,14);background=panel(gold)};intelligence.addView(t("AI ACTION     "+s,16f,gold));intelligence.addView(t("◎ IDEAL BID     $"+fmt(bid),14f,green));intelligence.addView(t("◉ TARGET 1      $"+fmt(p*1.015),14f));intelligence.addView(t("◉ TARGET 2      $"+fmt(p*1.035),14f));intelligence.addView(t("◇ STOP LOSS     $"+fmt(p*.975),14f,Color.rgb(255,90,70)));box.addView(intelligence);box.addView(spacer(12));box.addView(neoButton("LIVE CANDLES",green){chart(c)});box.addView(spacer(8));box.addView(neoButton("♢ SET ALERT",gold){alertDialog(c,p)})
+        val intelligence=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(16,14,16,14);background=panel(gold)};intelligence.addView(t("AI ACTION     "+s,16f,gold));intelligence.addView(t("◎ IDEAL BID     $"+fmt(bid),14f,green));intelligence.addView(t("◉ TARGET 1      $"+fmt(p*1.015),14f));intelligence.addView(t("◉ TARGET 2      $"+fmt(p*1.035),14f));intelligence.addView(t("◇ STOP LOSS     $"+fmt(p*.975),14f,Color.rgb(255,90,70)));box.addView(intelligence);box.addView(spacer(12));box.addView(neoButton("LIVE CANDLES",green){chart(c)});box.addView(spacer(8));box.addView(neoButton("♢ SET ALERT",gold){alertDialog(c,p)});box.addView(spacer(10));box.addView(t("1m    5m    15m    1h    4h    1D",12f,green))
     }
     private fun alertCenter(){
         val box=screen("SET ALERT");box.addView(t("CUSTOM PRICE & % ALERTS",13f,gold))
@@ -123,12 +123,14 @@ class MainActivity : Activity() {
     }
 
     private fun chart(c:String){
-        val w=WebView(this);w.settings.javaScriptEnabled=true;w.setBackgroundColor(Color.BLACK)
-        w.loadUrl("https://www.tradingview.com/chart/?symbol=BINANCE%3A${c}USDT");setContentView(w)
-        w.setOnKeyListener{_,key,e->if(key==KeyEvent.KEYCODE_BACK&&e.action==KeyEvent.ACTION_UP){home();true}else false}
+        val frame=FrameLayout(this).apply{setBackgroundColor(Color.BLACK)}
+        val box=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(18,24,18,18)}
+        val top=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL}
+        top.addView(neoButton("‹ BACK",gold){home()},LinearLayout.LayoutParams(0,-2,.35f));top.addView(t(c+" / USDT",20f,Color.WHITE).apply{gravity=Gravity.CENTER},LinearLayout.LayoutParams(0,-2,1f));top.addView(t("★",22f,gold),LinearLayout.LayoutParams(60,-2));box.addView(top)
+        box.addView(t("1m     5m     15m     1h     4h     1D",12f,green));val w=WebView(this);w.settings.javaScriptEnabled=true;w.setBackgroundColor(Color.BLACK);w.loadUrl("https://www.tradingview.com/chart/?symbol=BINANCE:"+c+"USDT");box.addView(w,LinearLayout.LayoutParams(-1,0,1f))
+        val indicators=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL};listOf("MA","EMA","RSI","MACD","VOL").forEach{indicators.addView(t(it,11f,green).apply{gravity=Gravity.CENTER;background=panel(green)},LinearLayout.LayoutParams(0,52,1f))};box.addView(indicators)
+        val order=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(12,8,12,8);background=panel(gold)};order.addView(t("ORDER BOOK",13f,Color.WHITE));order.addView(t("BID                 ASK",12f,gold));order.addView(t("LIVE DEPTH AVAILABLE IN CHART FEED",11f,Color.LTGRAY));box.addView(order);frame.addView(box);setContentView(frame)
     }
-
-    private fun checkAlert(c:String,p:Double){val sp=getSharedPreferences("neo_alerts",MODE_PRIVATE);val target=sp.getString(c,null)?.toDoubleOrNull()?:return;val last=sp.getString(c+"_last",null)?.toDoubleOrNull();if(last!=null&&((last<target&&p>=target)||(last>target&&p<=target))){val n=Notification.Builder(this,"neo_alerts").setSmallIcon(android.R.drawable.stat_notify_more).setContentTitle("$c PRICE TRIGGER").setContentText("$c crossed ${fmt(target)} // LIVE ${fmt(p)}").setAutoCancel(true).build();getSystemService(NotificationManager::class.java).notify(c.hashCode(),n)};sp.edit().putString(c+"_last",p.toString()).apply()}
 
     private fun alertDialog(c:String,p:Double){
         val input=EditText(this).apply{inputType=android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL;setText(fmt(p))}
