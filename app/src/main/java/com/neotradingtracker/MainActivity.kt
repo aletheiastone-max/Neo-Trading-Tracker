@@ -113,7 +113,7 @@ class MainActivity : Activity() {
                 } catch (_:Exception) { }
             }
         }}
-        search.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,d:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,d:Int){loadMarket(s?.toString()?::"")};override fun afterTextChanged(e:Editable?) {}})
+        search.addTextChangedListener(object:TextWatcher{override fun beforeTextChanged(s:CharSequence?,a:Int,b:Int,d:Int){};override fun onTextChanged(s:CharSequence?,a:Int,b:Int,d:Int){loadMarket(s?.toString() ?: "")};override fun afterTextChanged(e:Editable?) {}})
         search.setOnEditorActionListener{_,_,_->val q=search.text.toString().trim().uppercase().removeSuffix("USDT");if(q.matches(Regex("[A-Z0-9]{2,12}"))){watch.add(q);loadMarket(q)};true}
         loadMarket()
         box.addView(spacer(12));box.addView(bottomNav())
