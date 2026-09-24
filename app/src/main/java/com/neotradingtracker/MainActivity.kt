@@ -81,7 +81,22 @@ class MainActivity : Activity() {
     private fun markets(){
         val box=screen("LIVE MARKETS");val search=EditText(this).apply{hint="Search coins...";setTextColor(Color.WHITE);setHintTextColor(Color.GRAY);setPadding(18,16,18,16);background=panel(green)};box.addView(search);box.addView(spacer(10))
         box.addView(t("ALL     FAVOURITES     GAINERS     LOSERS",12f,gold))
-        watch.forEach{coin->thread{try{val j=JSONObject(URL("https://api.binance.com/api/v3/ticker/24hr?symbol="+coin+"USDT").readText());val p=j.getDouble("lastPrice");val ch=j.getDouble("priceChangePercent");runOnUiThread{val r=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL;background=panel(if(ch>=0)green else Color.rgb(255,75,55));setPadding(12,8,12,8)};r.addView(t(coin,17f,gold),LinearLayout.LayoutParams(0,-2,.45f));r.addView(t("$"+fmt(p),14f,Color.WHITE),LinearLayout.LayoutParams(0,-2,.75f));r.addView(t((if(ch>=0)"+ " else "")+"%.2f".format(ch)+"%",13f,if(ch>=0)green else Color.rgb(255,75,55)),LinearLayout.LayoutParams(0,-2,.55f));r.setOnClickListener{chart(coin)};box.addView(r,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,5,0,5)})}}}catch(_:Exception){}}}
+        watch.forEach { coin ->
+            thread {
+                try {
+                    val j=JSONObject(URL("https://api.binance.com/api/v3/ticker/24hr?symbol="+coin+"USDT").readText())
+                    val p=j.getDouble("lastPrice"); val ch=j.getDouble("priceChangePercent")
+                    runOnUiThread {
+                        val r=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; background=panel(if(ch>=0)green else Color.rgb(255,75,55)); setPadding(12,8,12,8) }
+                        r.addView(t(coin,17f,gold),LinearLayout.LayoutParams(0,-2,.45f))
+                        r.addView(t("$"+fmt(p),14f,Color.WHITE),LinearLayout.LayoutParams(0,-2,.75f))
+                        r.addView(t((if(ch>=0)"+ " else "")+"%.2f".format(ch)+"%",13f,if(ch>=0)green else Color.rgb(255,75,55)),LinearLayout.LayoutParams(0,-2,.55f))
+                        r.setOnClickListener { chart(coin) }
+                        box.addView(r,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,5,0,5)})
+                    }
+                } catch (_:Exception) { }
+            }
+        }
     }
     private fun detail(c:String,p:Double,ch:Double,s:String,bid:Double){
         val box=screen(c+" / USDT");box.addView(t("$"+fmt(p),29f,Color.WHITE));box.addView(t((if(ch>=0)"▲ +" else "▼ ")+"%.2f".format(ch)+"% (24h)",14f,if(ch>=0)green else Color.RED));box.addView(spacer(12))
