@@ -1,6 +1,7 @@
 package com.neotradingtracker
 
 import android.app.*
+import android.Manifest
 import android.os.*
 import android.content.*
 import android.content.pm.PackageManager
