@@ -6,6 +6,8 @@ import android.os.*
 import android.net.Uri
 import android.content.*
 import android.content.pm.PackageManager
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.graphics.*
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
@@ -29,6 +31,30 @@ class MainActivity : Activity() {
     private val discover=linkedSetOf("BTC","ETH","XRP","SOL","DOGE","LINK","AVAX","ADA","BNB","TRX","SUI","HBAR","LTC","BCH","DOT","UNI","AAVE","NEAR","APT","ARB","OP","PEPE","SHIB")
     private val allSymbols=mutableListOf<String>()
     private fun loadAllSymbols(done:()->Unit={}){thread{try{val root=JSONObject(URL("https://api.binance.com/api/v3/exchangeInfo").readText());val arr=root.getJSONArray("symbols");val found=mutableListOf<String>();for(i in 0 until arr.length()){val o=arr.getJSONObject(i);if(o.optString("quoteAsset")=="USDT"&&o.optString("status")=="TRADING")found.add(o.optString("baseAsset"))};synchronized(allSymbols){allSymbols.clear();allSymbols.addAll(found.distinct().sorted())};runOnUiThread{done()}}catch(_:Exception){runOnUiThread{done()}}}}
+    private val tokenContracts=mapOf(
+        "USDT" to "Ethereum (ERC-20) // 0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "LINK" to "Ethereum (ERC-20) // 0x514910771AF9Ca656af840dff83E8264EcF986CA",
+        "SHIB" to "Ethereum (ERC-20) // 0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE",
+        "PEPE" to "Ethereum (ERC-20) // 0x6982508145454Ce325dDbE47a25d4ec3d2311933",
+        "UNI" to "Ethereum (ERC-20) // 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
+        "AAVE" to "Ethereum (ERC-20) // 0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2dDaE9"
+    )
+    private fun contractAddress(c:String)=tokenContracts[c]?.substringAfter("// ")?.trim()
+    private fun addTokenIdentity(box:LinearLayout,c:String){
+        box.addView(sectionLabel("TOKEN IDENTITY // VERIFY BEFORE PURCHASE"))
+        val known=tokenContracts[c]
+        if(known!=null){
+            box.addView(t("NETWORK / CONTRACT\n"+known,11f,Color.WHITE).apply{setTextIsSelectable(true)})
+            box.addView(neoButton("COPY CONTRACT ADDRESS",gold){
+                val address=contractAddress(c)?:return@neoButton
+                val clipboard=getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText(c+" contract address",address))
+                Toast.makeText(this,c+" contract copied",Toast.LENGTH_SHORT).show()
+            })
+        }else{
+            box.addView(t("No verified contract address stored for this asset. It may be a native coin, or exist on multiple networks. Use the exchange's exact network/deposit details rather than guessing a contract.",11f,Color.LTGRAY))
+        }
+    }
     private val radarPoints=mutableListOf<RadarPoint>()
     data class RadarPoint(val symbol:String,val change:Double,val position:Double,val signal:String)
 
@@ -171,7 +197,7 @@ class MainActivity : Activity() {
     private fun openSanji(){val tg=Uri.parse("https://t.me/SanjiTradingBot");openTradeLink(tg.toString(),"Sanji")}
     private fun tradeHub(){val box=screen("QUICK TRADE");box.addView(sectionLabel("EXECUTION DESK"));box.addView(neoButton("⚡ SANJI // BUY & SELL",green){openSanji()});box.addView(spacer(8));box.addView(sectionLabel("QUICK EXCHANGE LINKS"));box.addView(neoButton("BYBIT // TRADE",gold){openTradeLink("https://www.bybit.com/en/trade/spot/","Bybit")});box.addView(neoButton("OKX // BUY CRYPTO",green){openTradeLink("https://www.okx.com/buy-crypto","OKX")});box.addView(neoButton("COINBASE ADVANCED // TRADE",gold){openTradeLink("https://www.coinbase.com/advanced-trade","Coinbase")});box.addView(spacer(10));box.addView(t("Connect an exchange before live orders are enabled. API secrets are never hard-coded into the app.",12f,Color.LTGRAY));box.addView(spacer(10));box.addView(neoButton("BINANCE SPOT // CONNECT",gold){Toast.makeText(this,"Secure exchange connection setup required",Toast.LENGTH_LONG).show()});box.addView(spacer(8));box.addView(t("BUY / SELL panel will unlock after authenticated exchange connection. Market, limit, quantity, estimated total and final confirmation will be shown before every order.",12f,green));box.addView(spacer(12));box.addView(bottomNav())}
     private fun detail(c:String,p:Double,ch:Double,s:String,bid:Double){
-        val box=screen(c+" / USDT");box.addView(t("$"+fmt(p),29f,Color.WHITE));box.addView(t((if(ch>=0)"▲ +" else "▼ ")+"%.2f".format(ch)+"% (24h)",14f,if(ch>=0)green else Color.RED));box.addView(spacer(12))
+        val box=screen(c+" / USDT");box.addView(t("$"+fmt(p),29f,Color.WHITE));box.addView(t((if(ch>=0)"▲ +" else "▼ ")+"%.2f".format(ch)+"% (24h)",14f,if(ch>=0)green else Color.RED));box.addView(spacer(12));addTokenIdentity(box,c);box.addView(spacer(12))
         val intelligence=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(16,14,16,14);background=panel(gold)};intelligence.addView(t("AI ACTION     "+s,16f,gold));intelligence.addView(t("◎ IDEAL BID     $"+fmt(bid),14f,green));intelligence.addView(t("◉ TARGET 1      $"+fmt(p*1.015),14f));intelligence.addView(t("◉ TARGET 2      $"+fmt(p*1.035),14f));intelligence.addView(t("◇ STOP LOSS     $"+fmt(p*.975),14f,Color.rgb(255,90,70)));box.addView(intelligence);box.addView(spacer(12));box.addView(neoButton("⚡ BUY / SELL WITH SANJI",gold){openSanji()});box.addView(spacer(8));box.addView(neoButton("LIVE CANDLES",green){chart(c)});box.addView(spacer(8));box.addView(neoButton("♢ SET ALERT",gold){alertDialog(c,p)});box.addView(spacer(10));box.addView(t("1m    5m    15m    1h    4h    1D",12f,green));box.addView(spacer(12));box.addView(bottomNav())
     }
     private fun alertCenter(){
