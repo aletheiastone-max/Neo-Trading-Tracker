@@ -58,18 +58,24 @@ class MainActivity : Activity() {
             try {
                 val q=java.net.URLEncoder.encode(normalized,"UTF-8")
                 val coins=JSONObject(cgGet("https://api.coingecko.com/api/v3/search?query="+q)).getJSONArray("coins")
-                var chosen:JSONObject?=null
+                val candidates=mutableListOf<JSONObject>()
                 for(i in 0 until coins.length()){
                     val o=coins.getJSONObject(i)
-                    if(o.optString("symbol").equals(normalized,true)){
-                        chosen=o
-                        // Prefer an exact ticker match with the highest CoinGecko market-cap rank.
-                        if(o.optInt("market_cap_rank",0)>0) break
-                    }
+                    if(o.optString("symbol").equals(normalized,true)) candidates.add(o)
                 }
-                if(chosen==null){runOnUiThread{done(null)};return@thread}
-                val id=chosen!!.optString("id")
-                val coin=JSONObject(cgGet("https://api.coingecko.com/api/v3/coins/"+java.net.URLEncoder.encode(id,"UTF-8")+"?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false&sparkline=false"))
+                if(candidates.isEmpty()){runOnUiThread{done(null)};return@thread}
+                var chosenCoin:JSONObject?=null
+                // Symbols are not unique. Inspect exact-symbol CoinGecko candidates and prefer one
+                // whose verified coin record explicitly lists a Solana mint.
+                for(candidate in candidates.take(8)){
+                    val candidateId=candidate.optString("id")
+                    val detail=JSONObject(cgGet("https://api.coingecko.com/api/v3/coins/"+java.net.URLEncoder.encode(candidateId,"UTF-8")+"?localization=false&tickers=false&market_data=false&community_data=false&developer_data=false&sparkline=false"))
+                    val p=detail.optJSONObject("platforms")
+                    if(chosenCoin==null) chosenCoin=detail
+                    if(p!=null && p.optString("solana","").trim().isNotBlank()){chosenCoin=detail;break}
+                }
+                val coin=chosenCoin ?: run{runOnUiThread{done(null)};return@thread}
+                val id=coin.optString("id")
                 val platforms=coin.optJSONObject("platforms")
                 val contracts=mutableListOf<TokenIdentity>()
                 if(platforms!=null){
@@ -118,6 +124,10 @@ class MainActivity : Activity() {
                             val clipboard=getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
                             clipboard.setPrimaryClip(ClipData.newPlainText(c+" Solana token address",sol.address))
                             Toast.makeText(this,c+" SOL address copied",Toast.LENGTH_SHORT).show()
+                        })
+                        solCard.addView(neoButton("BUY WITH SOL // JUPITER",green){
+                            // Pass the CoinGecko-listed Solana mint as output token; Jupiter handles wallet connection and quoting.
+                            openTradeLink("https://jup.ag/swap/SOL-"+java.net.URLEncoder.encode(sol.address,"UTF-8"),"Jupiter")
                         })
                         addressBox.addView(solCard,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,5,0,9)})
                     }else{
