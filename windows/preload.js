@@ -1,0 +1,1 @@
+const{contextBridge,clipboard,shell}=require('electron');contextBridge.exposeInMainWorld('neo',{copy:t=>clipboard.writeText(t),open:u=>shell.openExternal(u)});
