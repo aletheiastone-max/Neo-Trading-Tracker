@@ -108,7 +108,22 @@ class MainActivity : Activity() {
                 if(identity.contracts.isEmpty()){
                     addressBox.addView(t("NATIVE ASSET // NO TOKEN CONTRACT ADDRESS LISTED BY COINGECKO\nUse the native "+identity.name+" network when purchasing or withdrawing. No address is invented.",12f,Color.LTGRAY))
                 }else{
-                    identity.contracts.forEach { token ->
+                    val ordered=identity.contracts.sortedWith(compareBy<TokenIdentity>({ if(it.network.equals("solana",true)) 0 else 1 },{it.network}))
+                    val sol=ordered.firstOrNull{it.network.equals("solana",true)}
+                    if(sol!=null){
+                        val solCard=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(14,12,14,12);background=panel(gold)}
+                        solCard.addView(t("★ SOLANA TOKEN ADDRESS // PRIORITY",13f,gold))
+                        solCard.addView(t(sol.address,13f,Color.WHITE).apply{setTextIsSelectable(true)})
+                        solCard.addView(neoButton("COPY SOL ADDRESS",gold){
+                            val clipboard=getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText(c+" Solana token address",sol.address))
+                            Toast.makeText(this,c+" SOL address copied",Toast.LENGTH_SHORT).show()
+                        })
+                        addressBox.addView(solCard,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,5,0,9)})
+                    }else{
+                        addressBox.addView(t("SOLANA // NO SOLANA CONTRACT LISTED BY COINGECKO FOR THIS ASSET",11f,Color.LTGRAY))
+                    }
+                    ordered.filterNot{it.network.equals("solana",true)}.forEach { token ->
                         val card=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(12,10,12,10);background=panel(green)}
                         card.addView(t("NETWORK // "+token.network.uppercase(),11f,gold))
                         card.addView(t(token.address,12f,Color.WHITE).apply{setTextIsSelectable(true)})
@@ -119,7 +134,7 @@ class MainActivity : Activity() {
                         })
                         addressBox.addView(card,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,5,0,5)})
                     }
-                    addressBox.addView(t("VERIFY THE NETWORK MATCHES THE PURCHASE/WITHDRAWAL NETWORK BEFORE SENDING FUNDS.",10f,gold))
+                    addressBox.addView(t("ADDRESS SOURCE // COINGECKO. VERIFY THE SOLANA MINT/NETWORK IN YOUR PURCHASE DESTINATION BEFORE SENDING FUNDS.",10f,gold))
                 }
             }
         }
