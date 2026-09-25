@@ -51,6 +51,40 @@ class MainActivity : Activity() {
         } finally { conn.disconnect() }
     }
 
+    private fun jupiterSolanaMint(symbol:String):TokenIdentity? {
+        val q=java.net.URLEncoder.encode(symbol.trim(),"UTF-8")
+        val urls=listOf(
+            "https://lite-api.jup.ag/tokens/v2/search?query="+q,
+            "https://api.jup.ag/tokens/v1/search?query="+q
+        )
+        for(u in urls){
+            try{
+                val conn=URL(u).openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout=12000;conn.readTimeout=12000
+                conn.setRequestProperty("Accept","application/json")
+                conn.setRequestProperty("User-Agent","NeoTradingTracker/1.0")
+                val code=conn.responseCode
+                if(code !in 200..299){conn.disconnect();continue}
+                val raw=conn.inputStream.bufferedReader().use{it.readText()};conn.disconnect()
+                val arr=if(raw.trim().startsWith("[")) JSONArray(raw) else JSONObject(raw).optJSONArray("tokens") ?: JSONArray()
+                var fallback:TokenIdentity?=null
+                for(i in 0 until arr.length()){
+                    val o=arr.optJSONObject(i) ?: continue
+                    if(!o.optString("symbol").equals(symbol,true)) continue
+                    val mint=listOf("id","address","mint").map{o.optString(it,"").trim()}.firstOrNull{it.length in 32..50 && it.matches(Regex("[1-9A-HJ-NP-Za-km-z]+"))}
+                    if(mint!=null){
+                        val candidate=TokenIdentity("solana",mint)
+                        val verified=o.optBoolean("verified",false) || o.optString("tag","").contains("verified",true) || o.optString("verification","").contains("verified",true)
+                        if(verified)return candidate
+                        if(fallback==null)fallback=candidate
+                    }
+                }
+                if(fallback!=null)return fallback
+            }catch(_:Exception){}
+        }
+        return null
+    }
+
     private fun resolveTokenIdentity(symbol:String,done:(CoinIdentity?)->Unit){
         val normalized=symbol.trim().uppercase().removeSuffix("USDT")
         synchronized(tokenIdentities){tokenIdentities[normalized]}?.let{done(it);return}
@@ -86,11 +120,24 @@ class MainActivity : Activity() {
                         if(address.isNotBlank() && !address.equals("null",true)) contracts.add(TokenIdentity(net,address))
                     }
                 }
-                val identity=CoinIdentity(id,coin.optString("name",normalized),coin.optString("symbol",normalized),contracts.distinctBy{it.network+"|"+it.address})
+                val cgContracts=contracts.distinctBy{it.network+"|"+it.address}.toMutableList()
+                // Jupiter is Solana-native and is used as the primary/fallback source for a Solana mint.
+                // Replace a CoinGecko Solana entry when Jupiter resolves the same ticker to a mint.
+                val jup=jupiterSolanaMint(normalized)
+                if(jup!=null){
+                    cgContracts.removeAll{it.network.equals("solana",true)}
+                    cgContracts.add(0,jup)
+                }
+                val identity=CoinIdentity(id,coin.optString("name",normalized),coin.optString("symbol",normalized),cgContracts)
                 synchronized(tokenIdentities){tokenIdentities[normalized]=identity}
                 runOnUiThread{done(identity)}
             }catch(e:Exception){
-                runOnUiThread{done(null)}
+                val jup=jupiterSolanaMint(normalized)
+                if(jup!=null){
+                    val identity=CoinIdentity("jupiter-"+normalized,normalized,normalized,listOf(jup))
+                    synchronized(tokenIdentities){tokenIdentities[normalized]=identity}
+                    runOnUiThread{done(identity)}
+                }else runOnUiThread{done(null)}
             }
         }
     }
@@ -144,7 +191,7 @@ class MainActivity : Activity() {
                         })
                         addressBox.addView(card,LinearLayout.LayoutParams(-1,-2).apply{setMargins(0,5,0,5)})
                     }
-                    addressBox.addView(t("ADDRESS SOURCE // COINGECKO. VERIFY THE SOLANA MINT/NETWORK IN YOUR PURCHASE DESTINATION BEFORE SENDING FUNDS.",10f,gold))
+                    addressBox.addView(t("SOLANA MINT SOURCE // JUPITER WHEN AVAILABLE; COINGECKO FALLBACK. VERIFY THE MINT IN THE SWAP/WALLET BEFORE SENDING FUNDS.",10f,gold))
                 }
             }
         }
