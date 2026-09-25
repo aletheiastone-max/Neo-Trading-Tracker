@@ -1,1 +1,5 @@
-const{contextBridge,clipboard,shell}=require('electron');contextBridge.exposeInMainWorld('neo',{copy:t=>clipboard.writeText(t),open:u=>shell.openExternal(u)});
+const {contextBridge,clipboard,ipcRenderer}=require('electron');
+contextBridge.exposeInMainWorld('neo',{
+  copy:(text)=>clipboard.writeText(String(text)),
+  open:(url)=>ipcRenderer.invoke('neo:openExternal',String(url))
+});
